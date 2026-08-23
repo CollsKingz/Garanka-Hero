@@ -1,0 +1,6 @@
+{
+  "name": "Garanka Hero",
+  "description": "Enterprise Security Panic Button with real-time phone GPS tracing, responder navigation, patrol QR scanner, OB Book, equipment register, and multi-role dashboards.",
+  "requestFramePermissions": ["camera", "geolocation", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

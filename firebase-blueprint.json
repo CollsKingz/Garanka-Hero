@@ -1,0 +1,109 @@
+{
+  "$schema": "https://firebase.google.com/schemas/firestore-blueprint.json",
+  "entities": {
+    "companies": {
+      "title": "Security Company Tenants",
+      "description": "Multi-tenant security company accounts with quota parameters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "planLimitHouses": { "type": "number" },
+        "maxDevicesPerHouse": { "type": "number" },
+        "status": { "type": "string" }
+      }
+    },
+    "houses": {
+      "title": "Connected House Units",
+      "description": "Resident houses enrolled under security company tenant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "houseNumber": { "type": "string" },
+        "residentName": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "registeredDevices": { "type": "array" }
+      }
+    },
+    "incidents": {
+      "title": "Emergency Panic Incidents",
+      "description": "Triggered alarms, live phone GPS coordinates, responders, and timeline logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string" },
+        "severity": { "type": "string" },
+        "siteId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "coordinates": { "type": "object" },
+        "tracingActive": { "type": "boolean" },
+        "tracingHistory": { "type": "array" },
+        "assignedResponders": { "type": "array" },
+        "timeline": { "type": "array" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "obEntries": {
+      "title": "Occurrence Book Entries",
+      "description": "Official tamper-proof security incident log entries with supervisor signatures",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "obNumber": { "type": "string" },
+        "companyId": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "status": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "patrolScans": {
+      "title": "Patrol Checkpoint Scans",
+      "description": "Guard QR code scans with GPS coordinates and timestamps",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "checkpointId": { "type": "string" },
+        "checkpointName": { "type": "string" },
+        "guardName": { "type": "string" },
+        "timestamp": { "type": "string" }
+      }
+    },
+    "equipment": {
+      "title": "Equipment & Armory Register",
+      "description": "Tactical radios, body cameras, ballistic vests, and guard gear tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string" },
+        "condition": { "type": "string" }
+      }
+    },
+    "auditLogs": {
+      "title": "System Audit Trail",
+      "description": "Immutable security operations logs and authorization events",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "actor": { "type": "string" },
+        "actorRole": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" }
+      }
+    }
+  }
+}
