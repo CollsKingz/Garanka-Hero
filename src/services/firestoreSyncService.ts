@@ -17,13 +17,14 @@ import {
   OBEntry,
   EquipmentItem,
   AuditLog,
+  UserProfile,
 } from '../types';
 
 export class FirestoreSyncService {
   private static isInitialized = false;
 
   /**
-   * Seed initial database collections if empty in Firestore
+   * Seed initial empty or default tenant data if collections are empty
    */
   static async seedInitialDataIfEmpty(initialData: {
     companies: SecurityCompany[];
@@ -34,77 +35,65 @@ export class FirestoreSyncService {
     obEntries: OBEntry[];
     equipment: EquipmentItem[];
     auditLogs: AuditLog[];
+    users: UserProfile[];
   }) {
     if (this.isInitialized) return;
     this.isInitialized = true;
 
     try {
-      // Check companies
       const compSnap = await getDocs(collection(db, 'companies'));
-      if (compSnap.empty) {
+      if (compSnap.empty && initialData.companies.length > 0) {
         for (const item of initialData.companies) {
           await setDoc(doc(db, 'companies', item.id), item);
         }
       }
 
-      // Check houses
+      const userSnap = await getDocs(collection(db, 'users'));
+      if (userSnap.empty && initialData.users.length > 0) {
+        for (const item of initialData.users) {
+          await setDoc(doc(db, 'users', item.id), item);
+        }
+      }
+
       const houseSnap = await getDocs(collection(db, 'houses'));
-      if (houseSnap.empty) {
+      if (houseSnap.empty && initialData.houses.length > 0) {
         for (const item of initialData.houses) {
           await setDoc(doc(db, 'houses', item.id), item);
         }
       }
 
-      // Check checkpoints
-      const cpSnap = await getDocs(collection(db, 'checkpoints'));
-      if (cpSnap.empty) {
-        for (const item of initialData.checkpoints) {
-          await setDoc(doc(db, 'checkpoints', item.id), item);
-        }
-      }
-
-      // Check incidents
       const incSnap = await getDocs(collection(db, 'incidents'));
-      if (incSnap.empty) {
+      if (incSnap.empty && initialData.incidents.length > 0) {
         for (const item of initialData.incidents) {
           await setDoc(doc(db, 'incidents', item.id), item);
         }
       }
-
-      // Check equipment
-      const eqSnap = await getDocs(collection(db, 'equipment'));
-      if (eqSnap.empty) {
-        for (const item of initialData.equipment) {
-          await setDoc(doc(db, 'equipment', item.id), item);
-        }
-      }
-
-      // Check OB entries
-      const obSnap = await getDocs(collection(db, 'obEntries'));
-      if (obSnap.empty) {
-        for (const item of initialData.obEntries) {
-          await setDoc(doc(db, 'obEntries', item.id), item);
-        }
-      }
     } catch (err) {
-      console.warn('Firestore seeding notice (using local fallback if offline):', err);
+      console.warn('Firestore seeding notice:', err);
     }
   }
 
-  // --- Real-Time Listeners ---
+  // --- Real-Time Subscriptions ---
 
-  static subscribeIncidents(callback: (incidents: Incident[]) => void): Unsubscribe {
+  static subscribeCompanies(callback: (companies: SecurityCompany[]) => void): Unsubscribe {
     return onSnapshot(
-      collection(db, 'incidents'),
+      collection(db, 'companies'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list = snapshot.docs.map((d) => d.data() as Incident);
-          // Sort latest created first
-          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-          callback(list);
-        }
+        const list = snapshot.docs.map((d) => d.data() as SecurityCompany);
+        callback(list);
       },
-      (err) => console.warn('Firestore incidents subscription notice:', err)
+      (err) => console.warn('Companies subscription error:', err)
+    );
+  }
+
+  static subscribeUsers(callback: (users: UserProfile[]) => void): Unsubscribe {
+    return onSnapshot(
+      collection(db, 'users'),
+      (snapshot) => {
+        const list = snapshot.docs.map((d) => d.data() as UserProfile);
+        callback(list);
+      },
+      (err) => console.warn('Users subscription error:', err)
     );
   }
 
@@ -112,12 +101,22 @@ export class FirestoreSyncService {
     return onSnapshot(
       collection(db, 'houses'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list = snapshot.docs.map((d) => d.data() as HouseUnit);
-          callback(list);
-        }
+        const list = snapshot.docs.map((d) => d.data() as HouseUnit);
+        callback(list);
       },
-      (err) => console.warn('Firestore houses subscription notice:', err)
+      (err) => console.warn('Houses subscription error:', err)
+    );
+  }
+
+  static subscribeIncidents(callback: (incidents: Incident[]) => void): Unsubscribe {
+    return onSnapshot(
+      collection(db, 'incidents'),
+      (snapshot) => {
+        const list = snapshot.docs.map((d) => d.data() as Incident);
+        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        callback(list);
+      },
+      (err) => console.warn('Incidents subscription error:', err)
     );
   }
 
@@ -125,13 +124,11 @@ export class FirestoreSyncService {
     return onSnapshot(
       collection(db, 'obEntries'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list = snapshot.docs.map((d) => d.data() as OBEntry);
-          list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          callback(list);
-        }
+        const list = snapshot.docs.map((d) => d.data() as OBEntry);
+        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        callback(list);
       },
-      (err) => console.warn('Firestore obEntries subscription notice:', err)
+      (err) => console.warn('OBEntries subscription error:', err)
     );
   }
 
@@ -139,12 +136,10 @@ export class FirestoreSyncService {
     return onSnapshot(
       collection(db, 'equipment'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list = snapshot.docs.map((d) => d.data() as EquipmentItem);
-          callback(list);
-        }
+        const list = snapshot.docs.map((d) => d.data() as EquipmentItem);
+        callback(list);
       },
-      (err) => console.warn('Firestore equipment subscription notice:', err)
+      (err) => console.warn('Equipment subscription error:', err)
     );
   }
 
@@ -152,13 +147,11 @@ export class FirestoreSyncService {
     return onSnapshot(
       collection(db, 'patrolScans'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list = snapshot.docs.map((d) => d.data() as PatrolScan);
-          list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          callback(list);
-        }
+        const list = snapshot.docs.map((d) => d.data() as PatrolScan);
+        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        callback(list);
       },
-      (err) => console.warn('Firestore patrolScans subscription notice:', err)
+      (err) => console.warn('Scans subscription error:', err)
     );
   }
 
@@ -166,22 +159,45 @@ export class FirestoreSyncService {
     return onSnapshot(
       collection(db, 'auditLogs'),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const list = snapshot.docs.map((d) => d.data() as AuditLog);
-          callback(list);
-        }
+        const list = snapshot.docs.map((d) => d.data() as AuditLog);
+        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        callback(list);
       },
-      (err) => console.warn('Firestore auditLogs subscription notice:', err)
+      (err) => console.warn('AuditLogs subscription error:', err)
     );
   }
 
-  // --- Document Sync Operations ---
+  // --- CRUD Operations ---
 
-  static async saveIncident(incident: Incident) {
+  static async saveCompany(company: SecurityCompany) {
     try {
-      await setDoc(doc(db, 'incidents', incident.id), incident, { merge: true });
+      await setDoc(doc(db, 'companies', company.id), company, { merge: true });
     } catch (err) {
-      console.warn('Error saving incident to Firestore:', err);
+      console.warn('Error saving company:', err);
+    }
+  }
+
+  static async deleteCompany(companyId: string) {
+    try {
+      await deleteDoc(doc(db, 'companies', companyId));
+    } catch (err) {
+      console.warn('Error deleting company:', err);
+    }
+  }
+
+  static async saveUser(user: UserProfile) {
+    try {
+      await setDoc(doc(db, 'users', user.id), user, { merge: true });
+    } catch (err) {
+      console.warn('Error saving user:', err);
+    }
+  }
+
+  static async deleteUser(userId: string) {
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+    } catch (err) {
+      console.warn('Error deleting user:', err);
     }
   }
 
@@ -189,7 +205,7 @@ export class FirestoreSyncService {
     try {
       await setDoc(doc(db, 'houses', house.id), house, { merge: true });
     } catch (err) {
-      console.warn('Error saving house to Firestore:', err);
+      console.warn('Error saving house:', err);
     }
   }
 
@@ -197,7 +213,23 @@ export class FirestoreSyncService {
     try {
       await deleteDoc(doc(db, 'houses', houseId));
     } catch (err) {
-      console.warn('Error deleting house from Firestore:', err);
+      console.warn('Error deleting house:', err);
+    }
+  }
+
+  static async saveIncident(incident: Incident) {
+    try {
+      await setDoc(doc(db, 'incidents', incident.id), incident, { merge: true });
+    } catch (err) {
+      console.warn('Error saving incident:', err);
+    }
+  }
+
+  static async deleteIncident(incidentId: string) {
+    try {
+      await deleteDoc(doc(db, 'incidents', incidentId));
+    } catch (err) {
+      console.warn('Error deleting incident:', err);
     }
   }
 
@@ -205,7 +237,7 @@ export class FirestoreSyncService {
     try {
       await setDoc(doc(db, 'obEntries', entry.id), entry, { merge: true });
     } catch (err) {
-      console.warn('Error saving OB entry to Firestore:', err);
+      console.warn('Error saving OB entry:', err);
     }
   }
 
@@ -213,7 +245,7 @@ export class FirestoreSyncService {
     try {
       await setDoc(doc(db, 'equipment', item.id), item, { merge: true });
     } catch (err) {
-      console.warn('Error saving equipment to Firestore:', err);
+      console.warn('Error saving equipment:', err);
     }
   }
 
@@ -221,7 +253,7 @@ export class FirestoreSyncService {
     try {
       await setDoc(doc(db, 'patrolScans', scan.id), scan, { merge: true });
     } catch (err) {
-      console.warn('Error saving scan to Firestore:', err);
+      console.warn('Error saving patrol scan:', err);
     }
   }
 
@@ -229,7 +261,7 @@ export class FirestoreSyncService {
     try {
       await setDoc(doc(db, 'auditLogs', log.id), log, { merge: true });
     } catch (err) {
-      console.warn('Error saving audit log to Firestore:', err);
+      console.warn('Error saving audit log:', err);
     }
   }
 }

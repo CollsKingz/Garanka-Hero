@@ -255,6 +255,7 @@ export interface UserProfile {
   assignedHouseId?: string;
   assignedDeviceId?: string;
   avatar?: string;
+  location?: Coordinates;
 }
 
 export interface AuditLog {

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Incident, Coordinates, Checkpoint } from '../types';
+import { Incident, Coordinates, Checkpoint, UserProfile } from '../types';
 import { Shield, Navigation, AlertTriangle, Layers, Crosshair, Radio, ExternalLink } from 'lucide-react';
 
 interface LiveIncidentMapProps {
@@ -11,6 +11,8 @@ interface LiveIncidentMapProps {
   currentGuardCoords?: Coordinates;
   heightClass?: string;
   showAllCheckpoints?: boolean;
+  users?: UserProfile[];
+  activePanic?: { panic: boolean; room: string; timestamp?: number; reporter?: string } | null;
 }
 
 export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
@@ -21,6 +23,8 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
   currentGuardCoords,
   heightClass = 'h-[500px]',
   showAllCheckpoints = true,
+  users = [],
+  activePanic = null,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -265,7 +269,51 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
       }
     });
 
-    // 3. Render Current Guard's Location if present
+    // 3. Render Active Members and Guards with Live Firebase Coordinates
+    if (users && users.length > 0) {
+      users.forEach((u) => {
+        if (u.location && u.location.lat && u.location.lng) {
+          bounds.push([u.location.lat, u.location.lng]);
+
+          const isPanic = activePanic?.panic && (activePanic.reporter === u.name || activePanic.reporter === u.email);
+          const pinColor = isPanic ? '#ef4444' : u.role === 'guard' ? '#3b82f6' : '#10b981';
+          const pulseHtml = isPanic ? `<div class="absolute -inset-2 rounded-full animate-ping bg-red-500 opacity-75"></div>` : '';
+
+          const userIcon = L.divIcon({
+            className: 'custom-user-marker',
+            html: `
+              <div class="relative flex items-center justify-center w-8 h-8">
+                ${pulseHtml}
+                <div class="relative z-10 w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white shadow-xl text-[10px] font-bold" style="background-color: ${pinColor}">
+                  ${u.role === 'guard' ? '🛡️' : '👤'}
+                </div>
+              </div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          });
+
+          const userMarker = L.marker([u.location.lat, u.location.lng], { icon: userIcon })
+            .bindPopup(`
+              <div class="text-slate-900 text-xs p-1 font-sans">
+                <div class="font-black text-sm">${u.name}</div>
+                <div class="text-xs uppercase font-bold text-red-600">${u.role}</div>
+                <div class="text-slate-600 mt-1">📞 ${u.phone || u.email}</div>
+                <div class="text-[10px] text-slate-500 font-mono mt-1">📍 Lat: ${u.location.lat.toFixed(5)}, Lng: ${u.location.lng.toFixed(5)}</div>
+                ${u.location.lastUpdated ? `<div class="text-[9px] text-slate-400 mt-0.5">Updated: ${new Date(u.location.lastUpdated).toLocaleTimeString()}</div>` : ''}
+              </div>
+            `);
+
+          markersLayer.addLayer(userMarker);
+
+          if (isPanic && mapInstanceRef.current) {
+            mapInstanceRef.current.setView([u.location.lat, u.location.lng], 18, { animate: true });
+          }
+        }
+      });
+    }
+
+    // 4. Render Current Guard's Location if present
     if (currentGuardCoords) {
       bounds.push([currentGuardCoords.lat, currentGuardCoords.lng]);
       const guardIcon = L.divIcon({
@@ -292,10 +340,12 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
       if (selected) {
         map.setView([selected.coordinates.lat, selected.coordinates.lng], 17, { animate: true });
       }
+    } else if (activePanic?.panic) {
+      // Find reporter or center on default
     } else if (bounds.length > 0) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
     }
-  }, [incidents, selectedIncidentId, checkpoints, currentGuardCoords, showAllCheckpoints, onSelectIncident]);
+  }, [incidents, selectedIncidentId, checkpoints, currentGuardCoords, showAllCheckpoints, onSelectIncident, users, activePanic]);
 
   const handleCenterOnUser = () => {
     if (!mapInstanceRef.current) return;

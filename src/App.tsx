@@ -21,6 +21,9 @@ import { OTPVerificationScreen } from './components/auth/OTPVerificationScreen';
 import { IncidentVoiceRoomModal } from './components/voice/IncidentVoiceRoomModal';
 import { TacticalVoiceDock } from './components/voice/TacticalVoiceDock';
 import { voiceRoomService } from './services/voiceRoomService';
+import { database, ref, set, onValue, db, setDoc, doc } from './lib/firebase';
+import { LocationPermissionModal } from './components/modals/LocationPermissionModal';
+import { PwaInstallBanner } from './components/PwaInstallBanner';
 
 import {
   UserRole,
@@ -86,6 +89,8 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_COMPANIES;
   });
 
+  const [users, setUsers] = useState<UserProfile[]>([]);
+
   const [houses, setHouses] = useState<HouseUnit[]>(() => {
     const saved = localStorage.getItem('aegis_houses');
     return saved ? JSON.parse(saved) : INITIAL_HOUSES;
@@ -129,17 +134,49 @@ export default function App() {
   const [activeVoiceIncident, setActiveVoiceIncident] = useState<Incident | null>(null);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
 
+  // Real-time Firebase RTDB Panic Alert State & Listener
+  const [realtimePanicAlert, setRealtimePanicAlert] = useState<{ panic: boolean; room: string; timestamp?: number; reporter?: string } | null>(null);
+  const [showLocationModal, setShowLocationModal] = useState<boolean>(false);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState<boolean>(false);
+
+  useEffect(() => {
+    const panicRef = ref(database, 'panicAlert');
+    const unsubscribe = onValue(panicRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val && val.panic) {
+        setRealtimePanicAlert(val);
+      } else {
+        setRealtimePanicAlert(null);
+      }
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   // Active Company and User Profile
   const activeCompany = useMemo(() => {
-    return companies.find((c) => c.id === selectedCompanyId) || companies[0];
+    return companies.find((c) => c && c.id === selectedCompanyId) || companies[0] || INITIAL_COMPANIES[0];
   }, [companies, selectedCompanyId]);
 
   const currentUser: UserProfile = useMemo(() => {
-    const baseUser = CURRENT_USERS[currentRole] || CURRENT_USERS.community;
+    const defaultUser: UserProfile = {
+      id: 'usr-default',
+      name: 'Nomsa Dlamini',
+      role: currentRole,
+      phone: '+27 82 123 4567',
+      email: 'madihlabatc77@gmail.com',
+      siteId: 'site-hq',
+      siteName: 'Headquarters Central Control',
+      companyId: activeCompany?.id || 'comp-aegis',
+      companyName: activeCompany?.name || 'Aegis Security Operations',
+    };
+    const record = CURRENT_USERS as Record<string, UserProfile>;
+    const baseUser = (record && record[currentRole]) || defaultUser;
     return {
-      ...baseUser,
-      companyId: activeCompany.id,
-      companyName: activeCompany.name,
+      ...(baseUser || defaultUser),
+      companyId: activeCompany?.id || baseUser?.companyId || 'comp-aegis',
+      companyName: activeCompany?.name || baseUser?.companyName || 'Aegis Security Operations',
     };
   }, [currentRole, activeCompany]);
 
@@ -199,6 +236,19 @@ export default function App() {
       obEntries: INITIAL_OB_ENTRIES,
       equipment: INITIAL_EQUIPMENT,
       auditLogs: INITIAL_AUDIT_LOGS,
+      users: [],
+    });
+
+    const unsubCompanies = FirestoreSyncService.subscribeCompanies((cloudComps) => {
+      if (cloudComps && cloudComps.length > 0) {
+        setCompanies(cloudComps);
+      }
+    });
+
+    const unsubUsers = FirestoreSyncService.subscribeUsers((cloudUsers) => {
+      if (cloudUsers) {
+        setUsers(cloudUsers);
+      }
     });
 
     const unsubIncidents = FirestoreSyncService.subscribeIncidents((cloudIncidents) => {
@@ -238,6 +288,8 @@ export default function App() {
     });
 
     return () => {
+      unsubCompanies();
+      unsubUsers();
       unsubIncidents();
       unsubHouses();
       unsubOB();
@@ -246,6 +298,39 @@ export default function App() {
       unsubAudit();
     };
   }, []);
+
+  // --------------------------------------------------------------------------
+  // COMPANY & USER MULTI-TENANT CRUD HANDLERS
+  // --------------------------------------------------------------------------
+  const handleAddCompany = (comp: SecurityCompany) => {
+    setCompanies((prev) => [...prev, comp]);
+    FirestoreSyncService.saveCompany(comp);
+  };
+
+  const handleUpdateCompany = (comp: SecurityCompany) => {
+    setCompanies((prev) => prev.map((c) => (c.id === comp.id ? comp : c)));
+    FirestoreSyncService.saveCompany(comp);
+  };
+
+  const handleDeleteCompany = (companyId: string) => {
+    setCompanies((prev) => prev.filter((c) => c.id !== companyId));
+    FirestoreSyncService.deleteCompany(companyId);
+  };
+
+  const handleAddUser = (user: UserProfile) => {
+    setUsers((prev) => [...prev, user]);
+    FirestoreSyncService.saveUser(user);
+  };
+
+  const handleUpdateUser = (user: UserProfile) => {
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
+    FirestoreSyncService.saveUser(user);
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    FirestoreSyncService.deleteUser(userId);
+  };
 
   // --------------------------------------------------------------------------
   // AUTHENTICATION FLOW HANDLERS (Google OAuth -> Email OTP -> Strictly Routed)
@@ -264,6 +349,7 @@ export default function App() {
   const handleVerifyOtpSuccess = () => {
     setCurrentRole(authRole);
     setAuthStatus('authenticated');
+    setShowLocationModal(true); // Request location permissions upon signing in
 
     // Strict Landing Routing based on role
     if (authRole === 'community') {
@@ -332,6 +418,61 @@ export default function App() {
       i.reporterId === currentUser.id &&
       (i.status === 'triggered' || i.status === 'responding' || i.status === 'on_scene')
   ) || null;
+
+  // Real-time GPS Phone Tracking & Firebase Streaming Effect
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || !currentUser?.id) return;
+    if (!locationPermissionGranted) return;
+
+    let watchId: number | null = null;
+    const isPanicActive = Boolean(realtimePanicAlert?.panic || communityActiveIncident);
+
+    const options: PositionOptions = {
+      enableHighAccuracy: true,
+      maximumAge: isPanicActive ? 0 : 2000,
+      timeout: isPanicActive ? 5000 : 15000,
+    };
+
+    if ('geolocation' in navigator) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const coords = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            heading: pos.coords.heading || 0,
+            speed: pos.coords.speed || 0,
+            accuracy: pos.coords.accuracy || 5,
+            timestamp: pos.timestamp || Date.now(),
+            lastUpdated: Date.now(),
+          };
+
+          // Stream to Firebase RTDB under /users/{userId}/location
+          set(ref(database, `users/${currentUser.id}/location`), coords);
+
+          // Also update Firestore /users/{userId}
+          setDoc(
+            doc(db, 'users', currentUser.id),
+            {
+              ...currentUser,
+              location: coords,
+              lastActive: new Date().toISOString(),
+            },
+            { merge: true }
+          ).catch((e) => console.warn('Firestore location sync warn:', e));
+        },
+        (err) => {
+          console.warn('Geolocation watchPosition error:', err.message);
+        },
+        options
+      );
+    }
+
+    return () => {
+      if (watchId !== null && 'geolocation' in navigator) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [authStatus, currentUser?.id, locationPermissionGranted, realtimePanicAlert?.panic, communityActiveIncident]);
 
   // --------------------------------------------------------------------------
   // HOUSE & DEVICE QUOTA MANAGEMENT (50 Houses / 2 Devices Max)
@@ -535,6 +676,14 @@ export default function App() {
     setIncidents((prev) => [newIncident, ...prev]);
     FirestoreSyncService.saveIncident(newIncident);
 
+    // Write panic alert to Firebase Realtime Database
+    set(ref(database, 'panicAlert'), {
+      panic: true,
+      room: 'INC-2026-2855',
+      timestamp: Date.now(),
+      reporter: currentUser.name,
+    });
+
     // Auto connect supervisor or guard to voice if staff
     if (currentUser.role !== 'community') {
       voiceRoomService.joinIncidentVoiceRoom(
@@ -562,6 +711,12 @@ export default function App() {
   const handleCancelPanic = (incidentId: string, reason: string) => {
     geolocationService.stopLiveTracing();
     soundService.stopSiren();
+
+    // Clear panic state in Firebase Realtime Database
+    set(ref(database, 'panicAlert'), {
+      panic: false,
+      room: '',
+    });
 
     setIncidents((prev) =>
       prev.map((inc) => {
@@ -1001,6 +1156,28 @@ export default function App() {
   // --------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-red-600 selection:text-white">
+      {/* Real-time Firebase RTDB Panic Alert Banner */}
+      {realtimePanicAlert && realtimePanicAlert.panic && (
+        <div className="bg-red-600 text-white px-6 py-3 shadow-lg flex items-center justify-between sticky top-0 z-50 animate-pulse">
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full bg-white animate-ping"></span>
+            <div>
+              <span className="font-black uppercase tracking-wider text-sm">LIVE EMERGENCY PANIC ALERT!</span>
+              <span className="ml-3 text-xs bg-red-900/80 px-2 py-0.5 rounded font-mono font-bold">Room: {realtimePanicAlert.room}</span>
+              {realtimePanicAlert.reporter && <span className="ml-2 text-xs opacity-90">Reported by: {realtimePanicAlert.reporter}</span>}
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              set(ref(database, 'panicAlert'), { panic: false, room: '' });
+            }}
+            className="bg-white text-red-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer shadow-sm"
+          >
+            Acknowledge / Clear
+          </button>
+        </div>
+      )}
+
       {/* Navigation Header with Global Filters and Sign Out */}
       <Navbar
         currentRole={currentRole}
@@ -1051,6 +1228,8 @@ export default function App() {
               incidents={filteredIncidents}
               onSelectIncident={(id) => setSelectedDetailIncidentId(id)}
               checkpoints={checkpoints}
+              users={users}
+              activePanic={realtimePanicAlert}
               heightClass="h-[620px]"
             />
           </div>
@@ -1109,12 +1288,16 @@ export default function App() {
                 currentUser={currentUser}
                 company={activeCompany}
                 houses={houses}
+                users={users}
                 checkpoints={checkpoints}
                 auditLogs={auditLogs}
                 branches={branches}
                 onAddCheckpoint={handleAddCheckpoint}
                 onAddHouse={handleAddHouse}
                 onDeleteHouse={handleDeleteHouse}
+                onAddUser={handleAddUser}
+                onUpdateUser={handleUpdateUser}
+                onDeleteUser={handleDeleteUser}
                 onAddDevice={handleAddDevice}
                 onDeleteDevice={handleDeleteDevice}
               />
@@ -1145,7 +1328,11 @@ export default function App() {
               <DeveloperDashboard
                 currentUser={currentUser}
                 company={activeCompany}
+                companies={companies}
                 houses={houses}
+                onAddCompany={handleAddCompany}
+                onUpdateCompany={handleUpdateCompany}
+                onDeleteCompany={handleDeleteCompany}
                 onAddHouse={handleAddHouse}
                 onDeleteHouse={handleDeleteHouse}
                 onAddDevice={handleAddDevice}
@@ -1205,6 +1392,19 @@ export default function App() {
         currentUser={currentUser}
         onExpandVoiceRoom={() => setIsVoiceModalOpen(true)}
       />
+
+      {/* Location Permission Request Modal */}
+      <LocationPermissionModal
+        isOpen={showLocationModal}
+        onAllow={() => {
+          setLocationPermissionGranted(true);
+          setShowLocationModal(false);
+        }}
+        onDismiss={() => setShowLocationModal(false)}
+      />
+
+      {/* PWA Installer Banner & Offline Support */}
+      <PwaInstallBanner />
 
       {/* Global Application Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 px-6 flex flex-wrap items-center justify-between text-xs text-slate-500 font-mono gap-3">

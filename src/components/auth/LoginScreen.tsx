@@ -32,7 +32,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [customEmail, setCustomEmail] = useState<string>('madihlabatc77@gmail.com');
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
 
-  const activeCompany = companies.find((c) => c.id === selectedCompanyId) || companies[0];
+  const activeCompany = companies.find((c) => c && c.id === selectedCompanyId) || companies[0] || {
+    id: 'comp-aegis',
+    name: 'Aegis Security Operations',
+    shortCode: 'AEGIS',
+    region: 'National Precinct',
+    logo: '🛡️',
+    supportPhone: '+27 11 000 0000',
+    supportEmail: 'control@aegissec.za',
+    planName: 'Enterprise Shield Tier',
+    planLimitHouses: 50,
+    maxDevicesPerHouse: 2,
+    activeHousesCount: 0,
+  };
 
   const rolePresets: { role: UserRole; title: string; name: string; email: string; badge: string; desc: string }[] = [
     {
@@ -103,7 +115,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     if (!customEmail) return;
     setIsSigningIn(true);
     setTimeout(() => {
-      onStartGoogleAuth(customEmail, selectedRole, activeCompany.id);
+      onStartGoogleAuth(customEmail, selectedRole, activeCompany?.id || 'comp-aegis');
       setIsSigningIn(false);
     }, 600);
   };

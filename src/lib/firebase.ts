@@ -15,6 +15,7 @@ import {
   deleteDoc,
   Unsubscribe,
 } from 'firebase/firestore';
+import { getDatabase, ref, set, onValue, off, Database } from 'firebase/database';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -51,6 +52,8 @@ export const db: Firestore = firebaseConfigJson.firestoreDatabaseId
   ? getFirestore(app, firebaseConfigJson.firestoreDatabaseId)
   : getFirestore(app);
 
+export const database: Database = getDatabase(app);
+
 export {
   collection,
   doc,
@@ -61,5 +64,9 @@ export {
   orderBy,
   limit,
   deleteDoc,
+  ref,
+  set,
+  onValue,
+  off,
 };
 export type { Unsubscribe };
