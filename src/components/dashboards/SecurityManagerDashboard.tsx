@@ -57,7 +57,7 @@ export const SecurityManagerDashboard: React.FC<SecurityManagerDashboardProps> =
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Security Manager Operations Intelligence
+              Security Manager Operations Dashboard
             </h1>
             <p className="text-xs text-slate-500">
               SLA compliance, response times, patrol coverage, and equipment analytics

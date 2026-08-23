@@ -334,6 +334,40 @@ export const SecurityAdminDashboard: React.FC<SecurityAdminDashboardProps> = ({
                     <div>Address: <strong className="text-slate-900">{house.streetAddress}</strong></div>
                     <div>Phone: <strong className="text-slate-900 font-mono">{house.residentPhone}</strong></div>
                   </div>
+                  
+                  {/* DEVICES LIST */}
+                  <div className="pt-3 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Registered Devices ({house.registeredDevices.length}/2)</span>
+                      {house.registeredDevices.length < 2 && (
+                        <button
+                          onClick={() => setSelectedHouseForDevice(house)}
+                          className="text-[10px] font-bold text-red-600 hover:text-red-700 bg-red-50 px-2 py-0.5 rounded"
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      {house.registeredDevices.map((device) => (
+                        <div key={device.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 p-2 rounded-xl text-xs">
+                          <div>
+                            <div className="font-bold text-slate-900">{device.deviceName}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{device.deviceType}</div>
+                          </div>
+                          <button
+                            onClick={() => onDeleteDevice(house.id, device.id)}
+                            className="text-slate-400 hover:text-red-600 p-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      {house.registeredDevices.length === 0 && (
+                        <div className="text-[11px] text-slate-400 italic text-center py-1">No devices registered</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -544,6 +578,77 @@ export const SecurityAdminDashboard: React.FC<SecurityAdminDashboardProps> = ({
                   className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm"
                 >
                   Save House
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD DEVICE MODAL */}
+      {selectedHouseForDevice && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-left">
+            <h3 className="text-base font-black text-slate-900">Add Device to {selectedHouseForDevice.houseNumber}</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              const deviceType = fd.get('deviceType') as any;
+              const deviceName = fd.get('deviceName') as string;
+              
+              const res = onAddDevice(selectedHouseForDevice.id, {
+                deviceName,
+                deviceType,
+                deviceUid: 'DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase(),
+                registeredAt: new Date().toISOString(),
+                lastActive: new Date().toISOString(),
+                batteryPercent: 100,
+                status: 'active'
+              });
+              
+              if (res.success) {
+                setSelectedHouseForDevice(null);
+                setFormError('');
+              } else {
+                setFormError(res.message || 'Failed to add device.');
+              }
+            }} className="space-y-3">
+              {formError && <div className="text-xs bg-red-50 text-red-600 p-2 rounded">{formError}</div>}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Device Name:</label>
+                <input
+                  type="text"
+                  name="deviceName"
+                  required
+                  defaultValue="Living Room Panic Button"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Device Type:</label>
+                <select
+                  name="deviceType"
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
+                >
+                  <option value="iot_keyfob">IoT Keyfob / Button</option>
+                  <option value="mobile_app">Mobile App Link</option>
+                  <option value="guard_terminal">Guard Terminal</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedHouseForDevice(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm"
+                >
+                  Add Device
                 </button>
               </div>
             </form>

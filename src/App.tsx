@@ -60,6 +60,23 @@ import { geolocationService } from './services/geolocationService';
 import { TenantPlanService } from './services/tenantPlanService';
 import { FirestoreSyncService } from './services/firestoreSyncService';
 
+const geofenceAlertThrottle: Record<string, number> = {};
+
+function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // metres
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
 export default function App() {
   // Authentication & Workspace States
   const [authStatus, setAuthStatus] = useState<'unauthenticated' | 'pending_otp' | 'authenticated'>('unauthenticated');
@@ -138,6 +155,7 @@ export default function App() {
   const [realtimePanicAlert, setRealtimePanicAlert] = useState<{ panic: boolean; room: string; timestamp?: number; reporter?: string } | null>(null);
   const [showLocationModal, setShowLocationModal] = useState<boolean>(false);
   const [locationPermissionGranted, setLocationPermissionGranted] = useState<boolean>(false);
+  const [geofenceAlert, setGeofenceAlert] = useState<string | null>(null);
 
   useEffect(() => {
     const panicRef = ref(database, 'panicAlert');
@@ -335,42 +353,24 @@ export default function App() {
   // --------------------------------------------------------------------------
   // AUTHENTICATION FLOW HANDLERS (Google OAuth -> Email OTP -> Strictly Routed)
   // --------------------------------------------------------------------------
-  const handleStartGoogleAuth = (email: string, role: UserRole, companyId: string) => {
+  const handleLogin = (email: string, password: string) => {
+    // For admin login, enforce role as 'admin'
+    const role = 'admin';
     setAuthEmail(email);
     setAuthRole(role);
-    setSelectedCompanyId(companyId);
-
-    // Generate random 6 digit OTP for 2FA
-    const randomOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(randomOtp);
-    setAuthStatus('pending_otp');
-  };
-
-  const handleVerifyOtpSuccess = () => {
-    setCurrentRole(authRole);
+    setCurrentRole(role);
     setAuthStatus('authenticated');
-    setShowLocationModal(true); // Request location permissions upon signing in
+    setShowLocationModal(true);
+    setActiveNavTab('dashboard');
 
-    // Strict Landing Routing based on role
-    if (authRole === 'community') {
-      setActiveNavTab('panic');
-    } else if (authRole === 'guard') {
-      setActiveNavTab('patrol');
-    } else if (authRole === 'developer') {
-      setActiveNavTab('dashboard');
-    } else {
-      setActiveNavTab('dashboard');
-    }
-
-    // Add Audit Log
     const newAudit: AuditLog = {
       id: 'aud-' + Date.now(),
-      companyId: activeCompany.id,
+      companyId: activeCompany?.id || 'comp-aegis',
       timestamp: new Date().toLocaleString(),
-      actor: authEmail,
-      actorRole: authRole,
-      action: 'USER_AUTHENTICATED_2FA',
-      details: `User ${authEmail} authenticated via Google OAuth + Email OTP for workspace ${activeCompany.name}`,
+      actor: email,
+      actorRole: role,
+      action: 'ADMIN_AUTHENTICATED',
+      details: `Admin ${email} authenticated into workspace`,
     };
     setAuditLogs((prev) => [newAudit, ...prev]);
   };
@@ -459,6 +459,55 @@ export default function App() {
             },
             { merge: true }
           ).catch((e) => console.warn('Firestore location sync warn:', e));
+
+          // --- GEOFENCING LOGIC ---
+          if (['guard', 'supervisor', 'manager'].includes(currentUser.role)) {
+            const GEOFENCE_RADIUS_METERS = 500;
+            const THROTTLE_MS = 2 * 60 * 1000; // 2 minutes
+            const now = Date.now();
+
+            setIncidents((prev) => {
+              let changed = false;
+              const next = prev.map((inc) => {
+                if (inc.status === 'responding' || inc.status === 'on_scene') {
+                  const isAssigned =
+                    inc.assignedResponders?.some((r) => r.guardId === currentUser.id) ||
+                    inc.roster?.some((r) => r.userId === currentUser.id);
+
+                  if (isAssigned) {
+                    const dist = calculateDistanceMeters(coords.lat, coords.lng, inc.coordinates.lat, inc.coordinates.lng);
+                    if (dist > GEOFENCE_RADIUS_METERS) {
+                      const throttleKey = `${inc.id}-${currentUser.id}`;
+                      const lastAlert = geofenceAlertThrottle[throttleKey] || 0;
+                      if (now - lastAlert > THROTTLE_MS) {
+                        geofenceAlertThrottle[throttleKey] = now;
+                        changed = true;
+                        
+                        setTimeout(() => {
+                          setGeofenceAlert(`GEOFENCE BREACH: You are ${Math.round(dist)}m away from incident ${inc.code} (Safe zone is ${GEOFENCE_RADIUS_METERS}m).`);
+                          setTimeout(() => setGeofenceAlert(null), 12000);
+                        }, 0);
+                        
+                        const newTimelineEvent = {
+                          id: 't-' + Date.now(),
+                          timestamp: new Date().toLocaleTimeString(),
+                          action: 'Geofence Breach',
+                          actor: 'System Auto-Alert',
+                          notes: `${currentUser.name} (${currentUser.role}) traveled outside the ${GEOFENCE_RADIUS_METERS}m safe zone. (Distance: ${Math.round(dist)}m)`,
+                        };
+
+                        const updatedInc = { ...inc, timeline: [...inc.timeline, newTimelineEvent] };
+                        FirestoreSyncService.saveIncident(updatedInc);
+                        return updatedInc;
+                      }
+                    }
+                  }
+                }
+                return inc;
+              });
+              return changed ? next : prev;
+            });
+          }
         },
         (err) => {
           console.warn('Geolocation watchPosition error:', err.message);
@@ -1126,27 +1175,7 @@ export default function App() {
   if (authStatus === 'unauthenticated') {
     return (
       <LoginScreen
-        companies={companies}
-        selectedCompanyId={selectedCompanyId}
-        onSelectCompany={setSelectedCompanyId}
-        onStartGoogleAuth={handleStartGoogleAuth}
-      />
-    );
-  }
-
-  if (authStatus === 'pending_otp') {
-    return (
-      <OTPVerificationScreen
-        email={authEmail}
-        role={authRole}
-        company={activeCompany}
-        expectedOtp={generatedOtp}
-        onVerifySuccess={handleVerifyOtpSuccess}
-        onCancel={() => setAuthStatus('unauthenticated')}
-        onResendOtp={() => {
-          const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-          setGeneratedOtp(newCode);
-        }}
+        onLogin={handleLogin}
       />
     );
   }
@@ -1174,6 +1203,29 @@ export default function App() {
             className="bg-white text-red-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer shadow-sm"
           >
             Acknowledge / Clear
+          </button>
+        </div>
+      )}
+
+      {/* Geofence Breach Banner */}
+      {geofenceAlert && (
+        <div className="bg-amber-500 text-white px-6 py-3 shadow-lg flex items-center justify-between sticky top-0 z-[49] animate-bounce">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-amber-600 rounded-full">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div>
+              <span className="font-black uppercase tracking-wider text-sm">SECURITY ZONE VIOLATION</span>
+              <div className="text-xs font-semibold opacity-90">{geofenceAlert}</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setGeofenceAlert(null)}
+            className="bg-white text-amber-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-50 transition cursor-pointer shadow-sm"
+          >
+            Dismiss
           </button>
         </div>
       )}
