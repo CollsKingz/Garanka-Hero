@@ -24,7 +24,7 @@ import {
   Database,
   Radio,
 } from 'lucide-react';
-import { HouseUnit, RegisteredDevice, SecurityCompany, UserProfile } from '../../types';
+import { HouseUnit, RegisteredDevice, SecurityCompany, UserProfile, Incident } from '../../types';
 import { TenantPlanService, MAX_HOUSES_PER_COMPANY, MAX_DEVICES_PER_HOUSE } from '../../services/tenantPlanService';
 
 interface DeveloperDashboardProps {
@@ -32,6 +32,7 @@ interface DeveloperDashboardProps {
   company: SecurityCompany;
   companies: SecurityCompany[];
   houses: HouseUnit[];
+  incidents: Incident[];
   onAddCompany: (comp: SecurityCompany) => void;
   onUpdateCompany: (comp: SecurityCompany) => void;
   onDeleteCompany: (companyId: string) => void;
@@ -39,6 +40,7 @@ interface DeveloperDashboardProps {
   onDeleteHouse: (houseId: string) => void;
   onAddDevice: (houseId: string, deviceData: Omit<RegisteredDevice, 'id' | 'houseId'>) => { success: boolean; message?: string };
   onDeleteDevice: (houseId: string, deviceId: string) => void;
+  onUpdateDeviceApproval: (houseId: string, deviceId: string, approvalStatus: 'approved' | 'declined') => void;
   onTriggerTestPanic: () => void;
 }
 
@@ -47,6 +49,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
   company,
   companies = [],
   houses = [],
+  incidents = [],
   onAddCompany,
   onUpdateCompany,
   onDeleteCompany,
@@ -54,9 +57,10 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
   onDeleteHouse,
   onAddDevice,
   onDeleteDevice,
+  onUpdateDeviceApproval,
   onTriggerTestPanic,
 }) => {
-  const [activeTab, setActiveTab] = useState<'slides' | 'companies'>('slides');
+  const [activeTab, setActiveTab] = useState<'slides' | 'companies' | 'device_approvals'>('slides');
   const [activeSlide, setActiveSlide] = useState<number>(0);
   const [sandboxMessage, setSandboxMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -69,6 +73,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
   const [compLogo, setCompLogo] = useState<string>('🛡️');
   const [compPhone, setCompPhone] = useState<string>('');
   const [compEmail, setCompEmail] = useState<string>('');
+  const [compDepartment, setCompDepartment] = useState<string>('General Security');
   const [compPlan, setCompPlan] = useState<string>('Enterprise Shield Tier');
 
   const slides = [
@@ -122,6 +127,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
     setCompLogo(c.logo || '🛡️');
     setCompPhone(c.supportPhone);
     setCompEmail(c.supportEmail);
+    setCompDepartment(c.department || 'General Security');
     setCompPlan(c.planName);
     setShowCompanyModal(true);
   };
@@ -139,6 +145,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
         logo: compLogo,
         supportPhone: compPhone,
         supportEmail: compEmail,
+        department: compDepartment,
         planName: compPlan,
       });
     } else {
@@ -150,6 +157,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
         logo: compLogo,
         supportPhone: compPhone || '+27 11 000 0000',
         supportEmail: compEmail || 'control@security.za',
+        department: compDepartment,
         planName: compPlan,
         planLimitHouses: 50,
         maxDevicesPerHouse: 2,
@@ -198,6 +206,14 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
           >
             Companies Manager ({companies.length})
           </button>
+          <button
+            onClick={() => setActiveTab('device_approvals')}
+            className={`px-4 py-2 rounded-xl font-bold transition ${
+              activeTab === 'device_approvals' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Device Approvals
+          </button>
         </div>
       </div>
 
@@ -218,7 +234,15 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {companies.map((c) => (
+            {companies.map((c) => {
+              const companyHouses = houses.filter(h => h.companyId === c.id);
+              const totalDevices = companyHouses.reduce((sum, h) => sum + (h.registeredDevices?.length || 0), 0);
+              const activeDevices = companyHouses.reduce((sum, h) => sum + (h.registeredDevices?.filter(d => d.status === 'active').length || 0), 0);
+              const recentRegistrations = companyHouses.reduce((sum, h) => sum + (h.registeredDevices?.filter(d => new Date(d.registeredAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000).length || 0), 0);
+              const companyIncidents = incidents.filter(inc => inc.companyId === c.id);
+              const totalIncidents = companyIncidents.length;
+              
+              return (
               <div key={c.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -230,8 +254,24 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                   <h3 className="font-black text-sm text-slate-900">{c.name}</h3>
                   <div className="text-xs text-slate-600 space-y-1">
                     <div>Region: <strong className="text-slate-800">{c.region}</strong></div>
+                    <div>Department: <strong className="text-slate-800">{c.department || 'N/A'}</strong></div>
                     <div>Support: <strong className="text-slate-800">{c.supportPhone}</strong></div>
                     <div>Plan: <strong className="text-red-600">{c.planName}</strong></div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 mt-3">
+                    <div className="bg-white border border-slate-200 rounded-xl p-2.5 text-center shadow-sm">
+                      <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">Incidents</div>
+                      <div className="text-base font-black text-slate-900">{totalIncidents}</div>
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-xl p-2.5 text-center shadow-sm">
+                      <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">Devices</div>
+                      <div className="text-base font-black text-slate-900">{activeDevices} <span className="text-[10px] text-slate-400 font-medium">/ {totalDevices}</span></div>
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-xl p-2.5 text-center shadow-sm">
+                      <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">New (7d)</div>
+                      <div className="text-base font-black text-emerald-600">+{recentRegistrations}</div>
+                    </div>
                   </div>
                 </div>
 
@@ -252,7 +292,7 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                   </button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
@@ -312,6 +352,76 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                 All security entities are securely segregated by companyId across Firestore and Realtime Database paths.
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'device_approvals' && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h2 className="text-base font-black text-slate-900">Device Approvals Queue</h2>
+            <p className="text-xs text-slate-500">Review and approve new device registrations from company administrators.</p>
+          </div>
+
+          <div className="space-y-4">
+            {houses.flatMap(h => 
+              (h.registeredDevices || [])
+                .filter(d => d.approvalStatus === 'pending')
+                .map(d => ({ ...d, house: h }))
+            ).length === 0 ? (
+              <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200">
+                <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
+                <h3 className="font-bold text-slate-900 text-sm">All caught up!</h3>
+                <p className="text-xs text-slate-500">No pending devices require approval.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-[10px]">
+                    <tr>
+                      <th className="px-4 py-3 rounded-tl-xl">Device Name</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">UID</th>
+                      <th className="px-4 py-3">House / Company</th>
+                      <th className="px-4 py-3 rounded-tr-xl text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {houses.flatMap(h => 
+                      (h.registeredDevices || [])
+                        .filter(d => d.approvalStatus === 'pending')
+                        .map(d => ({ ...d, house: h }))
+                    ).map(device => (
+                      <tr key={device.id} className="hover:bg-slate-50 transition">
+                        <td className="px-4 py-3 font-bold text-slate-900">{device.deviceName}</td>
+                        <td className="px-4 py-3 font-mono">{device.deviceType}</td>
+                        <td className="px-4 py-3 font-mono text-slate-500">{device.deviceUid}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold">{device.house.houseNumber}</div>
+                          <div className="text-[10px] text-slate-500">Comp ID: {device.house.companyId}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => onUpdateDeviceApproval(device.house.id, device.id, 'approved')}
+                              className="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg font-bold transition"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => onUpdateDeviceApproval(device.house.id, device.id, 'declined')}
+                              className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-bold transition"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -384,6 +494,20 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Department (Developer Only):</label>
+                <select
+                  value={compDepartment}
+                  onChange={(e) => setCompDepartment(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-red-500"
+                >
+                  <option value="General Security">General Security</option>
+                  <option value="Executive Protection">Executive Protection</option>
+                  <option value="Technical Support">Technical Support</option>
+                  <option value="Command Center">Command Center</option>
+                </select>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3">

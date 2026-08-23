@@ -352,7 +352,12 @@ export const SecurityAdminDashboard: React.FC<SecurityAdminDashboardProps> = ({
                       {house.registeredDevices.map((device) => (
                         <div key={device.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 p-2 rounded-xl text-xs">
                           <div>
-                            <div className="font-bold text-slate-900">{device.deviceName}</div>
+                            <div className="font-bold text-slate-900 flex items-center gap-2">
+                              {device.deviceName}
+                              {device.approvalStatus === 'pending' && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] uppercase font-bold">Pending</span>}
+                              {device.approvalStatus === 'approved' && <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[9px] uppercase font-bold">Approved</span>}
+                              {device.approvalStatus === 'declined' && <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[9px] uppercase font-bold">Declined</span>}
+                            </div>
                             <div className="text-[10px] text-slate-500 font-mono">{device.deviceType}</div>
                           </div>
                           <button
@@ -603,7 +608,8 @@ export const SecurityAdminDashboard: React.FC<SecurityAdminDashboardProps> = ({
                 registeredAt: new Date().toISOString(),
                 lastActive: new Date().toISOString(),
                 batteryPercent: 100,
-                status: 'active'
+                status: 'active',
+                approvalStatus: 'pending'
               });
               
               if (res.success) {

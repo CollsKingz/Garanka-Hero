@@ -209,6 +209,7 @@ export interface RegisteredDevice {
   lastActive: string;
   batteryPercent: number;
   status: 'active' | 'offline' | 'unlinked';
+  approvalStatus?: 'pending' | 'approved' | 'declined';
 }
 
 export interface HouseUnit {
@@ -234,6 +235,7 @@ export interface SecurityCompany {
   logo: string;
   supportPhone: string;
   supportEmail: string;
+  department?: string; // Developer-only field
   planName: string;
   planLimitHouses: number; // strictly 50
   maxDevicesPerHouse: number; // strictly 2

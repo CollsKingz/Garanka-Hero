@@ -626,6 +626,24 @@ export default function App() {
     );
   };
 
+  const handleUpdateDeviceApproval = (houseId: string, deviceId: string, approvalStatus: 'approved' | 'declined') => {
+    setHouses((prev) =>
+      prev.map((h) => {
+        if (h.id === houseId) {
+          const updated = {
+            ...h,
+            registeredDevices: (h.registeredDevices || []).map((d) => 
+              d.id === deviceId ? { ...d, approvalStatus } : d
+            ),
+          };
+          FirestoreSyncService.saveHouse(updated);
+          return updated;
+        }
+        return h;
+      })
+    );
+  };
+
   // --------------------------------------------------------------------------
   // PANIC BUTTON & TRACING HANDLERS
   // --------------------------------------------------------------------------
@@ -1382,6 +1400,7 @@ export default function App() {
                 company={activeCompany}
                 companies={companies}
                 houses={houses}
+                incidents={filteredIncidents}
                 onAddCompany={handleAddCompany}
                 onUpdateCompany={handleUpdateCompany}
                 onDeleteCompany={handleDeleteCompany}
@@ -1389,6 +1408,7 @@ export default function App() {
                 onDeleteHouse={handleDeleteHouse}
                 onAddDevice={handleAddDevice}
                 onDeleteDevice={handleDeleteDevice}
+                onUpdateDeviceApproval={handleUpdateDeviceApproval}
                 onTriggerTestPanic={() => handleTriggerPanic('PANIC_GENERAL', 'Simulated Developer Sandbox Panic')}
               />
             )}
