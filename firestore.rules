@@ -6,6 +6,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    match /workspaces/{workspaceId} {
+      allow read: if true; // Allows unauthenticated users to see tenant options
+    }
+
     // Allow read/write for all emergency and operations collections
     match /{document=**} {
       allow read, write: if true;
