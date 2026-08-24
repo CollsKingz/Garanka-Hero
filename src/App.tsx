@@ -40,6 +40,7 @@ import {
   PatrolScan,
   OBEntry,
   EquipmentItem,
+  MaintenanceRecord,
   AuditLog,
   SiteBranch,
   SecurityCompany,
@@ -1018,12 +1019,25 @@ export default function App() {
     setEquipmentList((prev) =>
       prev.map((item) => {
         if (item.id === equipmentId) {
-          const updated = {
+          let updatedHistory = item.maintenanceHistory || [];
+          if (condition === 'Damaged') {
+            const autoMaintLog: MaintenanceRecord = {
+              id: 'maint-' + Date.now(),
+              loggedAt: new Date().toISOString(),
+              loggedBy: currentUser.name,
+              issueDescription: 'Item returned in Damaged condition. Flagged for armory technical inspection.',
+              status: 'Pending Repair',
+            };
+            updatedHistory = [autoMaintLog, ...updatedHistory];
+          }
+
+          const updated: EquipmentItem = {
             ...item,
             status: condition === 'Damaged' ? ('maintenance' as const) : ('available' as const),
             condition,
             assignedTo: undefined,
             lastInspectionDate: new Date().toISOString().slice(0, 10),
+            maintenanceHistory: updatedHistory,
           };
           FirestoreSyncService.saveEquipment(updated);
           return updated;
@@ -1040,6 +1054,53 @@ export default function App() {
       actorRole: currentUser.role,
       action: 'EQUIPMENT_RETURNED',
       details: `Returned asset ${equipmentId} to armory (Condition: ${condition})`,
+    };
+    setAuditLogs((prev) => [newAudit, ...prev]);
+    FirestoreSyncService.saveAuditLog(newAudit);
+  };
+
+  const handleSaveMaintenanceLog = (equipmentId: string, record: Omit<MaintenanceRecord, 'id' | 'loggedAt'>) => {
+    setEquipmentList((prev) =>
+      prev.map((item) => {
+        if (item.id === equipmentId) {
+          const newRecord: MaintenanceRecord = {
+            ...record,
+            id: 'maint-' + Date.now(),
+            loggedAt: new Date().toISOString(),
+          };
+          const updatedHistory = [newRecord, ...(item.maintenanceHistory || [])];
+          let newStatus = item.status;
+          let newCondition = item.condition;
+
+          if (record.status === 'Repaired') {
+            newStatus = 'available';
+            newCondition = 'Good';
+          } else if (record.status === 'Pending Repair' || record.status === 'In Maintenance') {
+            newStatus = 'maintenance';
+            newCondition = 'Damaged';
+          }
+
+          const updated: EquipmentItem = {
+            ...item,
+            status: newStatus,
+            condition: newCondition,
+            maintenanceHistory: updatedHistory,
+          };
+          FirestoreSyncService.saveEquipment(updated);
+          return updated;
+        }
+        return item;
+      })
+    );
+
+    const newAudit: AuditLog = {
+      id: 'aud-' + Date.now(),
+      companyId: activeCompany.id,
+      timestamp: new Date().toLocaleString(),
+      actor: currentUser.name,
+      actorRole: currentUser.role,
+      action: 'EQUIPMENT_MAINTENANCE_LOGGED',
+      details: `Logged maintenance entry for equipment ${equipmentId} (Status: ${record.status})`,
     };
     setAuditLogs((prev) => [newAudit, ...prev]);
     FirestoreSyncService.saveAuditLog(newAudit);
@@ -1340,6 +1401,7 @@ export default function App() {
             onIssueEquipment={handleIssueEquipment}
             onReturnEquipment={handleReturnEquipment}
             onAddNewEquipment={handleAddNewEquipment}
+            onSaveMaintenanceLog={handleSaveMaintenanceLog}
           />
         )}
 

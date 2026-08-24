@@ -281,13 +281,24 @@ export class FirestoreSyncService {
   static async syncOfflineQueue() {
     if (typeof window === 'undefined' || !navigator.onLine) return;
     try {
-      const queued = await offlineQueue.getQueuedIncidents();
-      if (queued.length === 0) return;
-      console.log(`Syncing ${queued.length} queued incidents to Firestore...`);
-      for (const inc of queued) {
-        await setDoc(doc(db, 'incidents', inc.id), inc, { merge: true });
-        await offlineQueue.removeIncident(inc.id);
+      const queuedIncidents = await offlineQueue.getQueuedIncidents();
+      if (queuedIncidents.length > 0) {
+        console.log(`Syncing ${queuedIncidents.length} queued incidents to Firestore...`);
+        for (const inc of queuedIncidents) {
+          await setDoc(doc(db, 'incidents', inc.id), inc, { merge: true });
+          await offlineQueue.removeIncident(inc.id);
+        }
       }
+
+      const queuedAudits = await offlineQueue.getQueuedAuditLogs();
+      if (queuedAudits.length > 0) {
+        console.log(`Syncing ${queuedAudits.length} queued audit logs to Firestore...`);
+        for (const log of queuedAudits) {
+          await setDoc(doc(db, 'auditLogs', log.id), log, { merge: true });
+          await offlineQueue.removeAuditLog(log.id);
+        }
+      }
+
       console.log('Offline queue sync complete.');
     } catch (err) {
       console.error('Error syncing offline queue:', err);
@@ -328,10 +339,16 @@ export class FirestoreSyncService {
   }
 
   static async saveAuditLog(log: AuditLog) {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      console.log('User offline. Queueing audit log in IndexedDB...');
+      await offlineQueue.enqueueAuditLog(log);
+      return;
+    }
     try {
       await setDoc(doc(db, 'auditLogs', log.id), log, { merge: true });
     } catch (err) {
-      console.warn('Error saving audit log:', err);
+      console.warn('Error saving audit log to Firestore. Queueing locally:', err);
+      await offlineQueue.enqueueAuditLog(log);
     }
   }
 }

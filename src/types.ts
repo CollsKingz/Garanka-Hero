@@ -102,6 +102,15 @@ export interface Incident {
     notes?: string;
   }[];
   notes?: string;
+  responderNotes?: string;
+  evidencePhotos?: {
+    id: string;
+    url: string;
+    caption: string;
+    uploadedAt: string;
+    uploadedBy: string;
+  }[];
+  legalDossierRef?: string;
   resolutionNotes?: string;
   resolvedAt?: string;
   resolvedBy?: string;
@@ -162,6 +171,18 @@ export interface OBEntry {
   reviewedAt?: string;
 }
 
+export interface MaintenanceRecord {
+  id: string;
+  loggedAt: string;
+  loggedBy: string;
+  issueDescription: string;
+  remedyAction?: string;
+  technicianName?: string;
+  cost?: number;
+  status: 'Pending Repair' | 'In Maintenance' | 'Repaired' | 'Decommissioned';
+  resolvedAt?: string;
+}
+
 export interface EquipmentItem {
   id: string;
   serialNumber: string;
@@ -180,6 +201,7 @@ export interface EquipmentItem {
   condition: 'Excellent' | 'Good' | 'Fair' | 'Damaged';
   lastInspectionDate: string;
   batteryHealthPercent?: number;
+  maintenanceHistory?: MaintenanceRecord[];
 }
 
 export interface SiteBranch {

@@ -32,3 +32,33 @@
   color: #0f172a;
 }
 
+/* Print to PDF Styling */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-incident-report, #printable-incident-report * {
+    visibility: visible;
+  }
+  #printable-incident-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+}
+

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Incident, PatrolScan, EquipmentItem, OBEntry, UserProfile } from '../../types';
 import { IncidentHeatmapD3 } from './IncidentHeatmapD3';
+import { PanicTriggersHourlyChart } from './PanicTriggersHourlyChart';
 
 interface SecurityManagerDashboardProps {
   currentUser: UserProfile;
@@ -149,6 +150,9 @@ export const SecurityManagerDashboard: React.FC<SecurityManagerDashboardProps> =
 
       {/* D3.js Monthly Incident Heatmap */}
       <IncidentHeatmapD3 incidents={incidents} />
+
+      {/* Recharts Panic Button Hourly Trigger Frequency (24H) */}
+      <PanicTriggersHourlyChart incidents={incidents} />
 
       {/* Analytics & Breakdown Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

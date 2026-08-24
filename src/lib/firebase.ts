@@ -14,6 +14,7 @@ import {
   orderBy,
   limit,
   deleteDoc,
+  setLogLevel,
   Unsubscribe,
 } from 'firebase/firestore';
 import firebaseConfigJson from '../../firebase-applet-config.json';
@@ -42,13 +43,18 @@ export let analytics: Analytics | null = null;
 
 if (typeof window !== 'undefined') {
   try {
-    const siteKey = (import.meta as any).env?.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
-    appCheck = initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(siteKey),
-      isTokenAutoRefreshEnabled: true
-    });
+    const siteKey = firebaseConfigJson.recaptchaSiteKey || (import.meta as any).env?.VITE_RECAPTCHA_SITE_KEY;
+    if (siteKey && typeof siteKey === 'string' && siteKey.trim().length > 0) {
+      appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(siteKey),
+        isTokenAutoRefreshEnabled: true
+      });
+    }
   } catch(e) { console.warn("App Check failed to initialize", e); }
 }
+
+// Suppress Firestore verbose backend connection warning spam when operating in offline/preview sandbox
+setLogLevel('error');
 
 // Initialize analytics if supported in the browser environment
 if (typeof window !== 'undefined') {
