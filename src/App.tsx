@@ -753,6 +753,41 @@ export default function App() {
     setIncidents((prev) => [newIncident, ...prev]);
     FirestoreSyncService.saveIncident(newIncident);
 
+    // Call Backend /api/panic/trigger to verify Firebase ID token + App Check token
+    if (auth.currentUser) {
+      auth.currentUser.getIdToken().then(async (idToken) => {
+        let appCheckToken = '';
+        if (appCheck) {
+          try {
+            const tokResult = await getToken(appCheck);
+            appCheckToken = tokResult.token;
+          } catch (e) {
+            console.warn('App Check token error:', e);
+          }
+        }
+
+        fetch('/api/panic/trigger', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            ...(appCheckToken ? { 'X-Firebase-AppCheck': appCheckToken } : {}),
+          },
+          body: JSON.stringify({
+            eventId: newIncidentId,
+            lat: currentCoords.lat,
+            lng: currentCoords.lng,
+            accuracy: currentCoords.accuracy || 5,
+            clientTime: Date.now(),
+            deviceInfo: navigator.userAgent,
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => console.log('Backend panic trigger response:', data))
+          .catch((err) => console.warn('Backend panic trigger warning:', err));
+      }).catch((e) => console.warn('Failed to get Firebase ID token:', e));
+    }
+
     // Write panic alert to Firebase Firestore
     setDoc(doc(db, 'system', 'panicAlert'), {
       panic: true,
