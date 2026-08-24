@@ -1,4 +1,15 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400&display=swap');
+
+.GMP-attribution {
+  font-family: Roboto, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 0.875rem;
+  letter-spacing: normal;
+  white-space: nowrap;
+  color: #5e5e5e;
+}
 
 /* Leaflet Popup Resets for Modern UI */
 .leaflet-popup-content-wrapper {

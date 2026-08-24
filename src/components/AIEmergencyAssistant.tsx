@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
 import {
   Sparkles,
-  MapPin,
   Building2,
-  ShieldCheck,
-  ExternalLink,
   Loader2,
   AlertTriangle,
   Hospital,
@@ -12,14 +9,7 @@ import {
   Search,
 } from 'lucide-react';
 import { geolocationService } from '../services/geolocationService';
-
-interface GroundingChunk {
-  maps?: {
-    title?: string;
-    uri?: string;
-    placeId?: string;
-  };
-}
+import { GoogleMapsAttribution, GroundingChunk } from './GoogleMapsAttribution';
 
 export const AIEmergencyAssistant: React.FC = () => {
   const [prompt, setPrompt] = useState<string>('');
@@ -166,38 +156,8 @@ export const AIEmergencyAssistant: React.FC = () => {
             {aiResponse}
           </div>
 
-          {/* Google Maps Attribution & Grounding Sources */}
-          {groundingChunks && groundingChunks.length > 0 && (
-            <div className="border-t border-slate-200 pt-3 mt-3 space-y-2">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
-                <MapPin className="w-3.5 h-3.5 text-red-500" />
-                <span translate="no" className="GMP-attribution font-normal text-slate-500">
-                  Google Maps
-                </span>{' '}
-                Verified Sources:
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {groundingChunks.map((chunk, idx) => {
-                  const item = chunk.maps;
-                  if (!item?.uri) return null;
-                  return (
-                    <a
-                      key={idx}
-                      href={item.uri}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-between gap-2 p-2.5 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50 rounded-xl text-xs font-semibold text-slate-800 transition group shadow-sm"
-                    >
-                      <span className="truncate group-hover:text-indigo-700">
-                        {item.title || 'Google Maps Location'}
-                      </span>
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 flex-shrink-0" />
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Reusable Google Maps Attribution & Grounding Sources */}
+          <GoogleMapsAttribution groundingChunks={groundingChunks} />
         </div>
       )}
     </div>
