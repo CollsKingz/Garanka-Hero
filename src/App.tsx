@@ -85,7 +85,31 @@ function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
 
 export default function App() {
   // Authentication & Workspace States
-  const [authStatus, setAuthStatus] = useState<'unauthenticated' | 'pending_otp' | 'authenticated'>('unauthenticated');
+  
+  const [authStatus, setAuthStatus] = useState<'loading' | 'unauthenticated' | 'authenticated'>('loading');
+  
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const tokenResult = await getIdTokenResult(user);
+          const role = (tokenResult.claims.role as UserRole) || 'community';
+          setAuthEmail(user.email || '');
+          setAuthRole(role);
+          setCurrentRole(role);
+          setAuthStatus('authenticated');
+          setShowLocationModal(true);
+        } catch (e) {
+          console.error(e);
+          signOut(auth);
+        }
+      } else {
+        signOut(auth);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('comp-aegis');
   const [authEmail, setAuthEmail] = useState<string>('madihlabatc77@gmail.com');
   const [authRole, setAuthRole] = useState<UserRole>('community');
@@ -237,9 +261,13 @@ export default function App() {
 
   // Online / Offline listener
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
+    const handleOnline = () => {
+      setIsOnline(true);
+      FirestoreSyncService.syncOfflineQueue();
+    };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
+    if (navigator.onLine) FirestoreSyncService.syncOfflineQueue();
     window.addEventListener('offline', handleOffline);
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -359,7 +387,7 @@ export default function App() {
   // --------------------------------------------------------------------------
   
   const handleSignOut = () => {
-    setAuthStatus('unauthenticated');
+    signOut(auth);
     soundService.stopSiren();
     geolocationService.stopLiveTracing();
   };
@@ -1349,6 +1377,7 @@ export default function App() {
                 onDeleteUser={handleDeleteUser}
                 onAddDevice={handleAddDevice}
                 onDeleteDevice={handleDeleteDevice}
+                onUpdateDeviceApproval={handleUpdateDeviceApproval}
               />
             )}
 

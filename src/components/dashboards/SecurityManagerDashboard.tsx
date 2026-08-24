@@ -14,6 +14,7 @@ import {
   Percent,
 } from 'lucide-react';
 import { Incident, PatrolScan, EquipmentItem, OBEntry, UserProfile } from '../../types';
+import { IncidentHeatmapD3 } from './IncidentHeatmapD3';
 
 interface SecurityManagerDashboardProps {
   currentUser: UserProfile;
@@ -145,6 +146,9 @@ export const SecurityManagerDashboard: React.FC<SecurityManagerDashboardProps> =
           </div>
         </div>
       </div>
+
+      {/* D3.js Monthly Incident Heatmap */}
+      <IncidentHeatmapD3 incidents={incidents} />
 
       {/* Analytics & Breakdown Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

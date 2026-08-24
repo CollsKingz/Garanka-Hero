@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Shield, Lock } from 'lucide-react';
 import { auth } from '../../lib/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from 'firebase/auth';
+
 
 export const LoginScreen: React.FC = () => {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('community');
+  const [companyId, setCompanyId] = useState('comp-aegis');
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState('');
 
@@ -16,9 +20,33 @@ export const LoginScreen: React.FC = () => {
     setIsSigningIn(true);
     setError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      if (isRegistering) {
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        const idToken = await getIdToken(userCred.user);
+        
+        // Set role via backend
+        const res = await fetch('/api/admin/set-role', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({ role, companyId })
+        });
+        
+        if (!res.ok) {
+          throw new Error('Failed to set user role.');
+        }
+        
+        // Force token refresh so the new claims take effect immediately
+        await userCred.user.getIdToken(true);
+        // Page should reload or App.tsx should handle the new auth state
+        window.location.reload();
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
+      setError(err.message || 'Failed to authenticate');
       setIsSigningIn(false);
     }
   };
@@ -34,10 +62,12 @@ export const LoginScreen: React.FC = () => {
             <span className="font-black tracking-wider text-base uppercase">GARANKA ADMIN</span>
           </div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            Sign In
+            {isRegistering ? 'Create Account' : 'Sign In'}
           </h1>
           <p className="text-sm text-slate-600">
-            Enter your credentials to access the security operations workspace.
+            {isRegistering 
+              ? 'Register a new account for the security operations workspace.' 
+              : 'Enter your credentials to access the security operations workspace.'}
           </p>
         </div>
         <motion.div
@@ -47,6 +77,7 @@ export const LoginScreen: React.FC = () => {
         >
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && <div className="text-red-600 bg-red-50 p-2 rounded text-xs font-bold">{error}</div>}
+            
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">
                 Email
@@ -73,15 +104,59 @@ export const LoginScreen: React.FC = () => {
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all font-mono text-sm"
               />
             </div>
+
+            {isRegistering && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">
+                    Role
+                  </label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all font-mono text-sm"
+                  >
+                    <option value="community">Community / Resident</option>
+                    <option value="guard">Security Guard</option>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="manager">Manager</option>
+                    <option value="admin">Company Admin</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 ml-1">
+                    Company ID
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={companyId}
+                    onChange={(e) => setCompanyId(e.target.value)}
+                    placeholder="comp-aegis"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-3 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all font-mono text-sm"
+                  />
+                </div>
+              </>
+            )}
+
             <button
               type="submit"
               disabled={isSigningIn}
               className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed mt-2"
             >
               <Lock className="w-4 h-4" />
-              {isSigningIn ? 'Authenticating...' : 'Sign In'}
+              {isSigningIn ? 'Processing...' : (isRegistering ? 'Register' : 'Sign In')}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => setIsRegistering(!isRegistering)}
+              className="text-sm font-bold text-red-600 hover:text-red-700 transition-colors cursor-pointer"
+            >
+              {isRegistering ? 'Already have an account? Sign In' : 'Need an account? Register'}
+            </button>
+          </div>
         </motion.div>
       </div>
     </div>

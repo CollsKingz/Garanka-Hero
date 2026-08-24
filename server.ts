@@ -2,21 +2,23 @@ import express from "express";
 import path from "path";
 import cors from "cors";
 import { createServer as createViteServer } from "vite";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
+
+const fbAdmin = admin as any;
 
 // Initialize Firebase Admin (lazy or if env vars are present)
-let adminApp: admin.app.App | null = null;
+let adminApp: any = null;
 try {
   // If FIREBASE_SERVICE_ACCOUNT_JSON is provided, use it. Otherwise, use application default or omit.
   // We will initialize it when required.
   const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (serviceAccountStr) {
     const serviceAccount = JSON.parse(serviceAccountStr);
-    adminApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+    adminApp = fbAdmin.initializeApp({
+      credential: fbAdmin.credential.cert(serviceAccount)
     });
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    adminApp = admin.initializeApp();
+    adminApp = fbAdmin.initializeApp();
   }
 } catch (error) {
   console.error("Failed to initialize Firebase Admin:", error);
@@ -40,7 +42,7 @@ app.post("/api/admin/set-role", async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
     const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await fbAdmin.auth().verifyIdToken(idToken);
     
     // In a real app, only admins should be able to set roles for others. 
     // Here we'll do a simple mock allowing the user to set their own role for demo purposes.
@@ -48,7 +50,7 @@ app.post("/api/admin/set-role", async (req, res) => {
     
     const uidToModify = targetUid || decodedToken.uid;
     
-    await admin.auth().setCustomUserClaims(uidToModify, { role, companyId });
+    await fbAdmin.auth().setCustomUserClaims(uidToModify, { role, companyId });
     res.json({ success: true, message: `Claims set for ${uidToModify}` });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -70,7 +72,7 @@ app.post("/api/panic/trigger", async (req, res) => {
     const appCheckToken = req.header("X-Firebase-AppCheck");
     if (appCheckToken) {
       try {
-        await admin.appCheck().verifyToken(appCheckToken);
+        await fbAdmin.appCheck().verifyToken(appCheckToken);
       } catch (err) {
         console.warn("App Check verification failed, but continuing for dev mode:", err);
         // In strict prod: return res.status(401).json({ error: "App Check token invalid." });
@@ -80,7 +82,7 @@ app.post("/api/panic/trigger", async (req, res) => {
     }
     
     const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await fbAdmin.auth().verifyIdToken(idToken);
     
     const { lat, lng, accuracy, clientTime, deviceInfo, eventId } = req.body;
     
@@ -92,14 +94,14 @@ app.post("/api/panic/trigger", async (req, res) => {
       eventId: eventId || `ev-${Date.now()}`,
       userId: decodedToken.uid,
       companyId: companyId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: fbAdmin.firestore.FieldValue.serverTimestamp(),
       location: { lat, lng, accuracy: accuracy || 0 },
       status: "new",
       device: deviceInfo || "unknown"
     };
     
     // Write to Firestore
-    await admin.firestore().collection("panicEvents").doc(panicData.eventId).set(panicData);
+    await fbAdmin.firestore().collection("panicEvents").doc(panicData.eventId).set(panicData);
     
     res.json({ success: true, eventId: panicData.eventId });
   } catch (error: any) {

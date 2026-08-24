@@ -37,9 +37,12 @@ if (!getApps().length) {
 
 export const auth: Auth = getAuth(app);
 
+export let appCheck: AppCheck | null = null;
+export let analytics: Analytics | null = null;
+
 if (typeof window !== 'undefined') {
   try {
-    const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
+    const siteKey = (import.meta as any).env?.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
     appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(siteKey),
       isTokenAutoRefreshEnabled: true
@@ -47,10 +50,7 @@ if (typeof window !== 'undefined') {
   } catch(e) { console.warn("App Check failed to initialize", e); }
 }
 
-
 // Initialize analytics if supported in the browser environment
-export let appCheck: AppCheck | null = null;
-export let analytics: Analytics | null = null;
 if (typeof window !== 'undefined') {
   isSupported().then((supported) => {
     if (supported) {

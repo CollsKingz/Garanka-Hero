@@ -36,6 +36,7 @@ interface SecurityAdminDashboardProps {
   onDeleteUser: (userId: string) => void;
   onAddDevice: (houseId: string, deviceData: Omit<RegisteredDevice, 'id' | 'houseId'>) => { success: boolean; message?: string };
   onDeleteDevice: (houseId: string, deviceId: string) => void;
+  onUpdateDeviceApproval?: (houseId: string, deviceId: string, approvalStatus: 'approved' | 'declined') => void;
 }
 
 export const SecurityAdminDashboard: React.FC<SecurityAdminDashboardProps> = ({
@@ -54,6 +55,7 @@ export const SecurityAdminDashboard: React.FC<SecurityAdminDashboardProps> = ({
   onDeleteUser,
   onAddDevice,
   onDeleteDevice,
+  onUpdateDeviceApproval,
 }) => {
   const [activeTab, setActiveTab] = useState<'houses_devices' | 'qr_library' | 'users_roles' | 'audit_logs'>('houses_devices');
   const [showAddHouseModal, setShowAddHouseModal] = useState<boolean>(false);
@@ -360,12 +362,32 @@ export const SecurityAdminDashboard: React.FC<SecurityAdminDashboardProps> = ({
                             </div>
                             <div className="text-[10px] text-slate-500 font-mono">{device.deviceType}</div>
                           </div>
-                          <button
-                            onClick={() => onDeleteDevice(house.id, device.id)}
-                            className="text-slate-400 hover:text-red-600 p-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          
+                          <div className="flex gap-1">
+                            {device.approvalStatus === 'pending' && onUpdateDeviceApproval && (
+                              <>
+                                <button
+                                  onClick={() => onUpdateDeviceApproval(house.id, device.id, 'approved')}
+                                  className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => onUpdateDeviceApproval(house.id, device.id, 'declined')}
+                                  className="text-xs font-bold bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
+                                >
+                                  Decline
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => onDeleteDevice(house.id, device.id)}
+                              className="text-slate-400 hover:text-red-600 p-1 ml-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
                         </div>
                       ))}
                       {house.registeredDevices.length === 0 && (
