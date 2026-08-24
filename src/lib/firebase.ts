@@ -42,6 +42,8 @@ export let appCheck: AppCheck | null = null;
 export let analytics: Analytics | null = null;
 
 if (typeof window !== 'undefined') {
+  (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  (self as any).FIREBASE_APPCHECK_EXECUTE_IN__DEV__ = true;
   try {
     const siteKey = firebaseConfigJson.recaptchaSiteKey || (import.meta as any).env?.VITE_RECAPTCHA_SITE_KEY;
     if (siteKey && typeof siteKey === 'string' && siteKey.trim().length > 0) {
