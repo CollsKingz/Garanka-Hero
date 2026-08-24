@@ -5,6 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    base: '/', // Ensure base path is set to root
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
