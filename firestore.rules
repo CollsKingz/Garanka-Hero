@@ -1,18 +1,29 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isAuthenticated() {
+    
+    // Catch-all deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
       return request.auth != null;
     }
-
-    match /workspaces/{workspaceId} {
-      allow read: if true; // Allows unauthenticated users to see tenant options
+    function hasRole(role) {
+      return isSignedIn() && request.auth.token.role == role;
     }
-
-    // Allow read/write for all emergency and operations collections
-    match /{document=**} {
-      allow read, write: if true;
+    function isCompany(companyId) {
+      return isSignedIn() && request.auth.token.companyId == companyId;
+    }
+    
+    match /panicEvents/{eventId} {
+      allow read, write: if hasRole('admin') && isCompany(resource.data.companyId);
+      allow read: if (hasRole('developer') || hasRole('supervisor') || hasRole('manager')) && isCompany(resource.data.companyId);
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create, update, delete: if false; 
     }
   }
 }

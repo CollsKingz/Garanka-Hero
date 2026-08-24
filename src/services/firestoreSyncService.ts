@@ -1,3 +1,6 @@
+import { query, where } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
+import { query, where } from 'firebase/firestore';
 import {
   db,
   collection,
@@ -8,6 +11,7 @@ import {
   getDocs,
   Unsubscribe,
 } from '../lib/firebase';
+import { query, where } from 'firebase/firestore';
 import {
   Incident,
   HouseUnit,
@@ -108,15 +112,58 @@ export class FirestoreSyncService {
     );
   }
 
-  static subscribeIncidents(callback: (incidents: Incident[]) => void): Unsubscribe {
+  
+  static subscribePanicEvents(companyId: string, role: string, callback: (incidents: Incident[]) => void): Unsubscribe {
+    let q;
+    if (role === 'admin' || role === 'developer' || role === 'manager' || role === 'supervisor') {
+       q = query(
+        collection(db, 'panicEvents'),
+        where('companyId', '==', companyId),
+        where('status', 'in', ['new', 'acknowledged'])
+      );
+    } else {
+       q = query(
+        collection(db, 'panicEvents'),
+        where('userId', '==', auth.currentUser?.uid || 'none')
+      );
+    }
+    
     return onSnapshot(
-      collection(db, 'incidents'),
+      q,
       (snapshot) => {
-        const list = snapshot.docs.map((d) => d.data() as Incident);
-        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const list: Incident[] = snapshot.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: data.eventId || d.id,
+            code: `PANIC-${d.id.substring(0, 5).toUpperCase()}`,
+            title: 'Emergency Beacon Alert',
+            category: 'PANIC_GENERAL',
+            status: data.status === 'new' ? 'triggered' : data.status === 'acknowledged' ? 'responding' : 'resolved',
+            severity: 'critical',
+            siteId: 'site-1',
+            siteName: 'Main Site',
+            companyId: data.companyId,
+            reporterId: data.userId,
+            reporterName: 'User ' + data.userId.substring(0, 4),
+            reporterPhone: '',
+            reporterRole: 'community',
+            coordinates: {
+              lat: data.location?.lat || 0,
+              lng: data.location?.lng || 0,
+              accuracy: data.location?.accuracy || 0,
+            },
+            tracingActive: data.status !== 'resolved',
+            tracingHistory: data.location ? [data.location] : [],
+            assignedResponders: [],
+            timeline: [],
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          } as Incident;
+        });
+        
         callback(list);
       },
-      (err) => console.warn('Incidents subscription error:', err)
+      (err) => console.warn('Panic events subscription error:', err)
     );
   }
 

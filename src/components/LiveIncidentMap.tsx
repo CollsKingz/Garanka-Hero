@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Incident, Coordinates, Checkpoint, UserProfile } from '../types';
 import { Shield, Navigation, AlertTriangle, Layers, Crosshair, Radio, ExternalLink } from 'lucide-react';
 

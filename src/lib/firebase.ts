@@ -1,3 +1,4 @@
+import { initializeAppCheck, AppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getAnalytics, isSupported, Analytics } from 'firebase/analytics';
@@ -15,7 +16,6 @@ import {
   deleteDoc,
   Unsubscribe,
 } from 'firebase/firestore';
-import { getDatabase, ref, set, onValue, off, Database } from 'firebase/database';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -37,7 +37,19 @@ if (!getApps().length) {
 
 export const auth: Auth = getAuth(app);
 
+if (typeof window !== 'undefined') {
+  try {
+    const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
+    appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(siteKey),
+      isTokenAutoRefreshEnabled: true
+    });
+  } catch(e) { console.warn("App Check failed to initialize", e); }
+}
+
+
 // Initialize analytics if supported in the browser environment
+export let appCheck: AppCheck | null = null;
 export let analytics: Analytics | null = null;
 if (typeof window !== 'undefined') {
   isSupported().then((supported) => {
@@ -52,7 +64,6 @@ export const db: Firestore = firebaseConfigJson.firestoreDatabaseId
   ? getFirestore(app, firebaseConfigJson.firestoreDatabaseId)
   : getFirestore(app);
 
-export const database: Database = getDatabase(app);
 
 export {
   collection,
@@ -64,9 +75,5 @@ export {
   orderBy,
   limit,
   deleteDoc,
-  ref,
-  set,
-  onValue,
-  off,
 };
 export type { Unsubscribe };

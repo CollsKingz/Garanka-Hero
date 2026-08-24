@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'motion/react';
 import {
   AlertOctagon,
@@ -66,6 +66,14 @@ export const PanicScreen: React.FC<PanicScreenProps> = ({
     };
   }, []);
 
+  const handleTrigger = useCallback(() => {
+    if (!isSilent) {
+      soundService.playPanicTrigger();
+      soundService.startSiren();
+    }
+    onTriggerPanic(selectedCategory, userNotes, isSilent);
+  }, [isSilent, onTriggerPanic, selectedCategory, userNotes]);
+
   // Handle hold-to-confirm timer
   useEffect(() => {
     if (isHolding && requireHold && !activeIncident) {
@@ -94,15 +102,8 @@ export const PanicScreen: React.FC<PanicScreenProps> = ({
     return () => {
       if (holdTimerRef.current) clearInterval(holdTimerRef.current);
     };
-  }, [isHolding, requireHold, activeIncident]);
+  }, [isHolding, requireHold, activeIncident, handleTrigger]);
 
-  const handleTrigger = () => {
-    if (!isSilent) {
-      soundService.playPanicTrigger();
-      soundService.startSiren();
-    }
-    onTriggerPanic(selectedCategory, userNotes, isSilent);
-  };
 
   const handleImmediateClick = () => {
     if (!requireHold && !activeIncident) {

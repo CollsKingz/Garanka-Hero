@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+const fs = require('fs');
+let code = `import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Shield, Lock } from 'lucide-react';
 import { auth } from '../../lib/firebase';
@@ -87,3 +88,6 @@ export const LoginScreen: React.FC = () => {
     </div>
   );
 };
+`;
+
+fs.writeFileSync('src/components/auth/LoginScreen.tsx', code);

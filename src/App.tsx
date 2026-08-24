@@ -21,7 +21,13 @@ import { OTPVerificationScreen } from './components/auth/OTPVerificationScreen';
 import { IncidentVoiceRoomModal } from './components/voice/IncidentVoiceRoomModal';
 import { TacticalVoiceDock } from './components/voice/TacticalVoiceDock';
 import { voiceRoomService } from './services/voiceRoomService';
-import { database, ref, set, onValue, db, setDoc, doc } from './lib/firebase';
+import { auth } from './lib/firebase';
+import { getIdToken } from 'firebase/auth';
+import { getToken } from 'firebase/app-check';
+import { appCheck } from './lib/firebase';
+
+import { onAuthStateChanged, signOut, getIdTokenResult } from 'firebase/auth';
+import { db, setDoc, doc, onSnapshot } from './lib/firebase';
 import { LocationPermissionModal } from './components/modals/LocationPermissionModal';
 import { PwaInstallBanner } from './components/PwaInstallBanner';
 
@@ -158,18 +164,16 @@ export default function App() {
   const [geofenceAlert, setGeofenceAlert] = useState<string | null>(null);
 
   useEffect(() => {
-    const panicRef = ref(database, 'panicAlert');
-    const unsubscribe = onValue(panicRef, (snapshot) => {
-      const val = snapshot.val();
+    const panicRef = doc(db, 'system', 'panicAlert');
+    const unsubscribe = onSnapshot(panicRef, (snapshot) => {
+      const val = snapshot.data();
       if (val && val.panic) {
-        setRealtimePanicAlert(val);
+        setRealtimePanicAlert(val as any);
       } else {
         setRealtimePanicAlert(null);
       }
     });
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   // Active Company and User Profile
@@ -269,11 +273,11 @@ export default function App() {
       }
     });
 
-    const unsubIncidents = FirestoreSyncService.subscribeIncidents((cloudIncidents) => {
-      if (cloudIncidents && cloudIncidents.length > 0) {
-        setIncidents(cloudIncidents);
-      }
+    
+    const unsubIncidents = FirestoreSyncService.subscribePanicEvents(activeCompany?.id || 'comp-aegis', currentRole, (cloudIncidents) => {
+      setIncidents(cloudIncidents);
     });
+
 
     const unsubHouses = FirestoreSyncService.subscribeHouses((cloudHouses) => {
       if (cloudHouses && cloudHouses.length > 0) {
@@ -353,28 +357,7 @@ export default function App() {
   // --------------------------------------------------------------------------
   // AUTHENTICATION FLOW HANDLERS (Google OAuth -> Email OTP -> Strictly Routed)
   // --------------------------------------------------------------------------
-  const handleLogin = (email: string, password: string) => {
-    // For admin login, enforce role as 'admin'
-    const role = 'admin';
-    setAuthEmail(email);
-    setAuthRole(role);
-    setCurrentRole(role);
-    setAuthStatus('authenticated');
-    setShowLocationModal(true);
-    setActiveNavTab('dashboard');
-
-    const newAudit: AuditLog = {
-      id: 'aud-' + Date.now(),
-      companyId: activeCompany?.id || 'comp-aegis',
-      timestamp: new Date().toLocaleString(),
-      actor: email,
-      actorRole: role,
-      action: 'ADMIN_AUTHENTICATED',
-      details: `Admin ${email} authenticated into workspace`,
-    };
-    setAuditLogs((prev) => [newAudit, ...prev]);
-  };
-
+  
   const handleSignOut = () => {
     setAuthStatus('unauthenticated');
     soundService.stopSiren();
@@ -446,10 +429,7 @@ export default function App() {
             lastUpdated: Date.now(),
           };
 
-          // Stream to Firebase RTDB under /users/{userId}/location
-          set(ref(database, `users/${currentUser.id}/location`), coords);
-
-          // Also update Firestore /users/{userId}
+          // Stream to Firestore /users/{userId}
           setDoc(
             doc(db, 'users', currentUser.id),
             {
@@ -521,7 +501,7 @@ export default function App() {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [authStatus, currentUser?.id, locationPermissionGranted, realtimePanicAlert?.panic, communityActiveIncident]);
+  }, [authStatus, currentUser, locationPermissionGranted, realtimePanicAlert?.panic, communityActiveIncident]);
 
   // --------------------------------------------------------------------------
   // HOUSE & DEVICE QUOTA MANAGEMENT (50 Houses / 2 Devices Max)
@@ -743,8 +723,8 @@ export default function App() {
     setIncidents((prev) => [newIncident, ...prev]);
     FirestoreSyncService.saveIncident(newIncident);
 
-    // Write panic alert to Firebase Realtime Database
-    set(ref(database, 'panicAlert'), {
+    // Write panic alert to Firebase Firestore
+    setDoc(doc(db, 'system', 'panicAlert'), {
       panic: true,
       room: 'INC-2026-2855',
       timestamp: Date.now(),
@@ -779,8 +759,8 @@ export default function App() {
     geolocationService.stopLiveTracing();
     soundService.stopSiren();
 
-    // Clear panic state in Firebase Realtime Database
-    set(ref(database, 'panicAlert'), {
+    // Clear panic state in Firebase Firestore
+    setDoc(doc(db, 'system', 'panicAlert'), {
       panic: false,
       room: '',
     });
@@ -1190,11 +1170,10 @@ export default function App() {
   // --------------------------------------------------------------------------
   // RENDER AUTHENTICATION SCREENS (IF NOT LOGGED IN)
   // --------------------------------------------------------------------------
+  if (authStatus === 'loading') { return <div className='min-h-screen bg-slate-50 flex items-center justify-center'>Loading...</div>; }
   if (authStatus === 'unauthenticated') {
     return (
-      <LoginScreen
-        onLogin={handleLogin}
-      />
+      <LoginScreen />
     );
   }
 
@@ -1216,7 +1195,7 @@ export default function App() {
           </div>
           <button
             onClick={() => {
-              set(ref(database, 'panicAlert'), { panic: false, room: '' });
+              setDoc(doc(db, 'system', 'panicAlert'), { panic: false, room: '' });
             }}
             className="bg-white text-red-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer shadow-sm"
           >

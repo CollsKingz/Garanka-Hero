@@ -27,6 +27,7 @@ import {
 import { HouseUnit, RegisteredDevice, SecurityCompany, UserProfile, Incident } from '../../types';
 import { TenantPlanService, MAX_HOUSES_PER_COMPANY, MAX_DEVICES_PER_HOUSE } from '../../services/tenantPlanService';
 
+import { SystemHealthLog } from "./SystemHealthLog";
 interface DeveloperDashboardProps {
   currentUser: UserProfile;
   company: SecurityCompany;
@@ -427,6 +428,8 @@ export const DeveloperDashboard: React.FC<DeveloperDashboardProps> = ({
       )}
 
       {/* COMPANY MODAL */}
+      <SystemHealthLog />
+
       {showCompanyModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-left">
