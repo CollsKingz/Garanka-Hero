@@ -149,10 +149,16 @@ export const LoginScreen: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-4 pt-4 border-t border-slate-200 text-center space-y-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer"
+            >
+              ⚡ Enter Demo Preview Sandbox Mode
+            </button>
             <button
               onClick={() => setIsRegistering(!isRegistering)}
-              className="text-sm font-bold text-red-600 hover:text-red-700 transition-colors cursor-pointer"
+              className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors cursor-pointer block w-full"
             >
               {isRegistering ? 'Already have an account? Sign In' : 'Need an account? Register'}
             </button>

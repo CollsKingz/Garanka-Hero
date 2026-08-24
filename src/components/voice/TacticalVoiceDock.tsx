@@ -94,21 +94,35 @@ export const TacticalVoiceDock: React.FC<TacticalVoiceDockProps> = ({
           <button
             id="dock-mic-toggle-btn"
             onClick={() => voiceRoomService.toggleMute()}
-            className={`p-2 rounded-xl text-xs font-bold transition flex items-center justify-center ${
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md ${
               voiceState.isMuted
-                ? 'bg-red-600 text-white shadow-sm'
-                : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700'
+                ? 'bg-red-600 hover:bg-red-700 text-white border border-red-500 shadow-red-900/40'
+                : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 shadow-emerald-950/40'
             }`}
             title={voiceState.isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+            aria-label={voiceState.isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
           >
-            {voiceState.isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            {voiceState.isMuted ? (
+              <>
+                <MicOff className="w-4 h-4 text-white" />
+                <span className="hidden sm:inline font-bold uppercase tracking-wider text-[11px]">Unmute</span>
+              </>
+            ) : (
+              <>
+                <div className="relative flex items-center justify-center">
+                  <Mic className="w-4 h-4 text-emerald-400" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 absolute -top-1 -right-1 animate-ping"></span>
+                </div>
+                <span className="hidden sm:inline font-bold uppercase tracking-wider text-[11px] text-emerald-300">Live Mic</span>
+              </>
+            )}
           </button>
 
           {/* Quick Expand Modal Button */}
           <button
             id="dock-expand-btn"
             onClick={onExpandVoiceRoom}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
             title="Expand Voice Room Interface"
           >
             <Maximize2 className="w-4 h-4" />
@@ -118,7 +132,7 @@ export const TacticalVoiceDock: React.FC<TacticalVoiceDockProps> = ({
           <button
             id="dock-disconnect-btn"
             onClick={() => voiceRoomService.leaveIncidentVoiceRoom()}
-            className="p-2 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white transition"
+            className="p-2 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white transition cursor-pointer"
             title="Disconnect from Voice Channel"
           >
             <PhoneOff className="w-4 h-4" />

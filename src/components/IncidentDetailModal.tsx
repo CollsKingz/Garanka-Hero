@@ -243,6 +243,8 @@ export const IncidentDetailModal: React.FC<IncidentDetailModalProps> = ({
             rows={2}
             value={responderNote}
             onChange={(e) => setResponderNote(e.target.value)}
+            data-gramm="false"
+            data-enable-grammarly="false"
             placeholder="Type executive responder notes, initial situation assessment, or legal observations..."
             className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-red-500"
           />
@@ -357,6 +359,8 @@ export const IncidentDetailModal: React.FC<IncidentDetailModalProps> = ({
               type="text"
               value={timelineNote}
               onChange={(e) => setTimelineNote(e.target.value)}
+              data-gramm="false"
+              data-enable-grammarly="false"
               placeholder="Log radio status update or situation note..."
               className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-red-500"
             />
