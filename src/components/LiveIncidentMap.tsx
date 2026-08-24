@@ -124,11 +124,21 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
 
         const marker = L.marker([cp.coordinates.lat, cp.coordinates.lng], { icon: cpIcon })
           .bindPopup(`
-            <div class="text-slate-900 text-xs p-1">
-              <strong class="text-sm font-bold text-slate-950">${cp.name}</strong>
-              <div class="text-emerald-700 font-semibold mt-0.5">Zone: ${cp.zone}</div>
-              <div class="text-slate-600 mt-1">Code: <code class="bg-slate-200 px-1 py-0.5 rounded text-[10px]">${cp.code}</code></div>
-              <div class="text-slate-500 text-[10px] mt-1">Last scanned: ${cp.lastScannedBy || 'Never'}</div>
+            <div class="text-slate-900 font-sans min-w-[180px] ">
+              <div class="p-3 bg-slate-50 border-b border-slate-100 rounded-t-lg">
+                <strong class="text-sm font-black text-slate-900 block">${cp.name}</strong>
+                <div class="text-emerald-600 font-bold text-[10px] uppercase tracking-wide mt-0.5">Zone: ${cp.zone}</div>
+              </div>
+              <div class="p-3 space-y-1.5">
+                <div class="text-xs text-slate-600 flex items-center gap-2">
+                  <span class="font-bold">Code:</span> 
+                  <code class="bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-mono text-[10px] text-slate-700 shadow-sm">${cp.code}</code>
+                </div>
+                <div class="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-400"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  ${cp.lastScannedBy ? `Scanned by <strong class="text-slate-700">${cp.lastScannedBy}</strong>` : 'Never scanned'}
+                </div>
+              </div>
             </div>
           `);
         markersLayer.addLayer(marker);
@@ -144,22 +154,22 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
       bounds.push([inc.coordinates.lat, inc.coordinates.lng]);
 
       const pinColor = isResolved ? '#10b981' : isCritical ? '#ef4444' : '#f59e0b';
-      const pulseHtml = !isResolved ? `<div class="absolute -inset-2 rounded-full animate-ping opacity-60" style="background-color: ${pinColor}"></div>` : '';
+      const pulseHtml = !isResolved ? `<div class="absolute -inset-3 rounded-full animate-ping opacity-40" style="background-color: ${pinColor}"></div><div class="absolute -inset-1 rounded-full animate-pulse opacity-60" style="background-color: ${pinColor}"></div>` : '';
 
       const incidentIcon = L.divIcon({
         className: 'custom-incident-marker',
         html: `
-          <div class="relative flex items-center justify-center w-10 h-10">
+          <div class="relative flex items-center justify-center w-12 h-12">
             ${pulseHtml}
-            <div class="relative z-10 flex items-center justify-center w-9 h-9 rounded-full text-white shadow-2xl ${isSelected ? 'ring-4 ring-white' : ''}" style="background-color: ${pinColor}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <div class="relative z-10 flex items-center justify-center w-9 h-9 rounded-full text-white shadow-[0_0_20px_rgba(0,0,0,0.5)] ${isSelected ? 'ring-4 ring-white scale-110' : 'border-2 border-white/80'} transition-transform duration-300" style="background-color: ${pinColor}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
               </svg>
             </div>
           </div>
         `,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
       });
 
       const marker = L.marker([inc.coordinates.lat, inc.coordinates.lng], { icon: incidentIcon });
@@ -171,20 +181,29 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
       const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${inc.coordinates.lat},${inc.coordinates.lng}`;
 
       marker.bindPopup(`
-        <div class="text-slate-900 text-xs min-w-[210px] p-1 font-sans">
-          <div class="flex items-center justify-between gap-2 border-b border-slate-200 pb-1 mb-1.5">
-            <span class="font-mono text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">${inc.code}</span>
-            <span class="uppercase text-[9px] font-extrabold px-1.5 py-0.5 rounded text-white ${pinColor === '#ef4444' ? 'bg-red-600' : 'bg-amber-600'}">${inc.status}</span>
+        <div class="text-slate-900 font-sans min-w-[240px] ">
+          <div class="p-3 bg-slate-50 border-b border-slate-100 rounded-t-lg flex items-center justify-between gap-3">
+            <span class="font-mono text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-sm">${inc.code}</span>
+            <span class="uppercase text-[9px] font-black px-2 py-0.5 rounded-md text-white tracking-wider shadow-sm ${pinColor === '#ef4444' ? 'bg-red-500' : 'bg-amber-500'}">${inc.status}</span>
           </div>
-          <div class="font-bold text-slate-900 text-sm leading-snug">${inc.title}</div>
-          <div class="text-slate-600 mt-1">👤 Reporter: <strong class="text-slate-800">${inc.reporterName}</strong> (${inc.reporterPhone})</div>
-          <div class="text-slate-500 text-[10px] mt-0.5 font-mono">📍 GPS: ${inc.coordinates.lat.toFixed(5)}, ${inc.coordinates.lng.toFixed(5)}</div>
-          
-          <div class="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between gap-1">
-            <a href="${googleMapsUrl}" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 bg-slate-900 text-white hover:bg-slate-800 px-2 py-1 rounded text-[11px] font-medium transition">
-              <span>Google Maps</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </a>
+          <div class="p-3 space-y-2">
+            <div class="font-black text-slate-900 text-sm leading-tight">${inc.title}</div>
+            <div class="text-xs text-slate-600 flex items-start gap-1.5">
+              <span class="opacity-70 mt-0.5">👤</span>
+              <div>
+                <strong class="text-slate-800 block">${inc.reporterName}</strong>
+                <span class="text-[10px] text-slate-500">${inc.reporterPhone}</span>
+              </div>
+            </div>
+            <div class="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[10px] text-slate-500 font-mono flex items-center gap-1.5 mt-2">
+              <span class="text-rose-500">📍</span> ${inc.coordinates.lat.toFixed(5)}, ${inc.coordinates.lng.toFixed(5)}
+            </div>
+            <div class="pt-2">
+              <a href="${googleMapsUrl}" target="_blank" rel="noreferrer" class="flex items-center justify-center gap-1.5 w-full bg-slate-900 text-white hover:bg-slate-800 px-3 py-2 rounded-lg text-xs font-bold transition-all shadow-md active:scale-95">
+                <span>Open in Maps</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            </div>
           </div>
         </div>
       `);
@@ -196,11 +215,18 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
         const polylinePoints: [number, number][] = inc.tracingHistory.map((pt) => [pt.lat, pt.lng]);
         polylinePoints.push([inc.coordinates.lat, inc.coordinates.lng]);
 
+        const traceGlow = L.polyline(polylinePoints, {
+          color: '#f43f5e',
+          weight: 6,
+          opacity: 0.2,
+        });
+        routeLayer.addLayer(traceGlow);
+
         const traceLine = L.polyline(polylinePoints, {
           color: '#f43f5e',
-          weight: 3,
-          opacity: 0.8,
-          dashArray: '6, 6',
+          weight: 2,
+          opacity: 1,
+          dashArray: '4, 6',
         });
         routeLayer.addLayer(traceLine);
 
@@ -226,44 +252,60 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
             className: 'custom-responder-marker',
             html: `
               <div class="flex flex-col items-center">
-                <div class="bg-blue-600 text-white font-bold text-[9px] px-1 py-0.5 rounded shadow whitespace-nowrap mb-0.5">
-                  ${resp.callSign} (${resp.etaMinutes}m)
+                <div class="bg-slate-900 border border-slate-700 text-white font-bold text-[10px] px-2 py-0.5 rounded-lg shadow-lg whitespace-nowrap mb-1">
+                  ${resp.callSign} <span class="text-blue-400 ml-1">${resp.etaMinutes}m</span>
                 </div>
-                <div class="w-7 h-7 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center text-white shadow-xl">
+                <div class="relative w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white shadow-[0_0_15px_rgba(59,130,246,0.6)] border-2 border-white/90">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polygon points="3 11 22 2 13 21 11 13 3 11"/>
                   </svg>
                 </div>
               </div>
             `,
-            iconSize: [60, 48],
-            iconAnchor: [30, 48],
+            iconSize: [80, 56],
+            iconAnchor: [40, 56],
           });
 
           const respMarker = L.marker([resp.currentCoords.lat, resp.currentCoords.lng], { icon: responderIcon })
             .bindPopup(`
-              <div class="text-slate-900 text-xs p-1">
-                <strong>${resp.name}</strong>
-                <div class="text-blue-700 font-mono font-bold">${resp.callSign}</div>
-                <div class="text-slate-600 mt-1">Status: ${resp.status === 'en_route' ? 'En Route (ETA: ' + resp.etaMinutes + ' min)' : 'On Scene'}</div>
+              <div class="text-slate-900 font-sans min-w-[200px] ">
+                <div class="p-3 bg-slate-50 border-b border-slate-100 rounded-t-lg">
+                  <strong class="text-sm font-black text-slate-900">${resp.name}</strong>
+                  <div class="text-blue-600 font-mono font-bold text-[10px] mt-0.5 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 inline-block">${resp.callSign}</div>
+                </div>
+                <div class="p-3 space-y-1.5">
+                  <div class="text-xs font-bold flex items-center gap-1.5 ${resp.status === 'en_route' ? 'text-amber-600' : 'text-emerald-600'}">
+                    <span class="relative flex h-2 w-2">
+                      ${resp.status === 'en_route' ? '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>' : ''}
+                      <span class="relative inline-flex rounded-full h-2 w-2 ${resp.status === 'en_route' ? 'bg-amber-500' : 'bg-emerald-500'}"></span>
+                    </span>
+                    ${resp.status === 'en_route' ? 'En Route (ETA: ' + resp.etaMinutes + ' min)' : 'On Scene'}
+                  </div>
+                </div>
               </div>
             `);
 
           markersLayer.addLayer(respMarker);
 
           // Route Line between Responder and Incident
-          const routeLine = L.polyline(
-            [
-              [resp.currentCoords.lat, resp.currentCoords.lng],
-              [inc.coordinates.lat, inc.coordinates.lng],
-            ],
-            {
-              color: '#3b82f6',
-              weight: 3,
-              opacity: 0.9,
-              dashArray: '8, 8',
-            }
-          );
+          const routePoints = [
+            [resp.currentCoords.lat, resp.currentCoords.lng],
+            [inc.coordinates.lat, inc.coordinates.lng],
+          ] as [number, number][];
+
+          const routeGlow = L.polyline(routePoints, {
+            color: '#3b82f6',
+            weight: 6,
+            opacity: 0.2,
+          });
+          routeLayer.addLayer(routeGlow);
+
+          const routeLine = L.polyline(routePoints, {
+            color: '#3b82f6',
+            weight: 2,
+            opacity: 1,
+            dashArray: '4, 6',
+          });
           routeLayer.addLayer(routeLine);
         });
       }
@@ -282,25 +324,33 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
           const userIcon = L.divIcon({
             className: 'custom-user-marker',
             html: `
-              <div class="relative flex items-center justify-center w-8 h-8">
+              <div class="relative flex items-center justify-center w-10 h-10">
                 ${pulseHtml}
-                <div class="relative z-10 w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white shadow-xl text-[10px] font-bold" style="background-color: ${pinColor}">
+                <div class="relative z-10 w-9 h-9 rounded-full border-2 border-white flex items-center justify-center text-white shadow-xl text-xs font-bold" style="background-color: ${pinColor}">
                   ${u.role === 'guard' ? '🛡️' : '👤'}
                 </div>
               </div>
             `,
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
           });
 
           const userMarker = L.marker([u.location.lat, u.location.lng], { icon: userIcon })
             .bindPopup(`
-              <div class="text-slate-900 text-xs p-1 font-sans">
-                <div class="font-black text-sm">${u.name}</div>
-                <div class="text-xs uppercase font-bold text-red-600">${u.role}</div>
-                <div class="text-slate-600 mt-1">📞 ${u.phone || u.email}</div>
-                <div class="text-[10px] text-slate-500 font-mono mt-1">📍 Lat: ${u.location.lat.toFixed(5)}, Lng: ${u.location.lng.toFixed(5)}</div>
-                ${u.location.lastUpdated ? `<div class="text-[9px] text-slate-400 mt-0.5">Updated: ${new Date(u.location.lastUpdated).toLocaleTimeString()}</div>` : ''}
+              <div class="text-slate-900 font-sans min-w-[200px] ">
+                <div class="p-3 bg-slate-50 border-b border-slate-100 rounded-t-lg">
+                  <div class="font-black text-sm text-slate-900">${u.name}</div>
+                  <div class="text-[10px] uppercase font-bold tracking-wider mt-0.5 ${u.role === 'guard' ? 'text-blue-600' : 'text-emerald-600'}">${u.role}</div>
+                </div>
+                <div class="p-3 space-y-1.5">
+                  <div class="text-xs text-slate-600 flex items-center gap-1.5 font-medium">
+                    <span class="opacity-70">📞</span> ${u.phone || u.email}
+                  </div>
+                  <div class="text-[10px] text-slate-500 font-mono mt-1">
+                    <span class="text-rose-500">📍</span> ${u.location.lat.toFixed(5)}, ${u.location.lng.toFixed(5)}
+                  </div>
+                  ${u.location.lastUpdated ? `<div class="text-[9px] text-slate-400 font-medium mt-1">Updated: ${new Date(u.location.lastUpdated).toLocaleTimeString()}</div>` : ''}
+                </div>
               </div>
             `);
 
@@ -360,26 +410,25 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
   return (
     <div className={`relative w-full ${heightClass} rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950`}>
       {/* Top Map Controls Bar */}
-      <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-3 py-1.5 rounded-xl shadow-lg">
-        <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-          <Layers className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Layer:</span>
+      <div className="absolute top-4 left-4 z-[1000] flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 p-1.5 rounded-2xl shadow-2xl">
+        <div className="pl-2 pr-1 flex items-center text-slate-400">
+          <Layers className="w-4 h-4" />
         </div>
-        <div className="flex items-center gap-1 text-xs">
+        <div className="flex items-center gap-1 text-xs font-bold">
           <button
             id="map-style-dark-btn"
             onClick={() => setMapTileStyle('dark')}
-            className={`px-2 py-0.5 rounded-md font-medium transition ${
-              mapTileStyle === 'dark' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+            className={`px-3 py-1.5 rounded-xl transition-all duration-300 ${
+              mapTileStyle === 'dark' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            Tactical Dark
+            Tactical
           </button>
           <button
             id="map-style-satellite-btn"
             onClick={() => setMapTileStyle('satellite')}
-            className={`px-2 py-0.5 rounded-md font-medium transition ${
-              mapTileStyle === 'satellite' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+            className={`px-3 py-1.5 rounded-xl transition-all duration-300 ${
+              mapTileStyle === 'satellite' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
             Satellite
@@ -387,8 +436,8 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
           <button
             id="map-style-street-btn"
             onClick={() => setMapTileStyle('street')}
-            className={`px-2 py-0.5 rounded-md font-medium transition ${
-              mapTileStyle === 'street' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+            className={`px-3 py-1.5 rounded-xl transition-all duration-300 ${
+              mapTileStyle === 'street' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
             Street
@@ -397,15 +446,15 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
       </div>
 
       {/* Recenter & Legend Controls */}
-      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
+      <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2">
         <button
           id="map-recenter-btn"
           onClick={handleCenterOnUser}
-          className="flex items-center gap-1.5 bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl shadow-lg text-xs font-semibold backdrop-blur-md transition active:scale-95"
+          className="flex items-center gap-2 bg-slate-900/80 hover:bg-slate-800/90 text-white border border-slate-700/50 px-4 py-2 rounded-2xl shadow-2xl text-xs font-bold backdrop-blur-xl transition-all duration-300 active:scale-95"
           title="Recenter Map"
         >
-          <Crosshair className="w-3.5 h-3.5 text-rose-400" />
-          <span>Target Focus</span>
+          <Crosshair className="w-4 h-4 text-emerald-400" />
+          <span>Locate Target</span>
         </button>
       </div>
 
@@ -413,20 +462,23 @@ export const LiveIncidentMap: React.FC<LiveIncidentMapProps> = ({
       <div ref={mapContainerRef} className="w-full h-full" />
 
       {/* Bottom Floating Status Tag */}
-      <div className="absolute bottom-3 left-3 z-[1000] flex items-center gap-3 bg-slate-950/90 border border-slate-800/80 px-3 py-1.5 rounded-xl shadow-md text-[11px] text-slate-300 font-mono backdrop-blur-sm">
-        <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-          <span>Live GPS Tracing Active</span>
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-4 bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 px-5 py-2.5 rounded-full shadow-2xl text-[11px] font-bold text-slate-300 whitespace-nowrap">
+        <span className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+          </span>
+          <span className="tracking-wide text-white">LIVE GPS TRACING</span>
         </span>
-        <span className="text-slate-600">|</span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-          <span>Responders En Route</span>
+        <span className="w-px h-3 bg-slate-700"></span>
+        <span className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
+          <span className="tracking-wide">RESPONDERS</span>
         </span>
-        <span className="text-slate-600">|</span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-          <span>Patrol QR Posts</span>
+        <span className="w-px h-3 bg-slate-700"></span>
+        <span className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+          <span className="tracking-wide">PATROL POSTS</span>
         </span>
       </div>
     </div>
