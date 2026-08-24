@@ -25,6 +25,7 @@ import {
 import { Incident, IncidentCategory, UserProfile, Coordinates, HouseUnit } from '../types';
 import { soundService } from '../services/soundService';
 import { geolocationService } from '../services/geolocationService';
+import { AIEmergencyAssistant } from './AIEmergencyAssistant';
 
 interface PanicScreenProps {
   currentUser: UserProfile;
@@ -503,6 +504,11 @@ export const PanicScreen: React.FC<PanicScreenProps> = ({
               </div>
             </a>
           </div>
+        </div>
+
+        {/* Google Maps Grounded AI Emergency Location Assistant */}
+        <div className="mt-8">
+          <AIEmergencyAssistant />
         </div>
       </div>
 

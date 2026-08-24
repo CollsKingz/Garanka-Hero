@@ -3,6 +3,7 @@ import path from "path";
 import cors from "cors";
 import { createServer as createViteServer } from "vite";
 import admin from "firebase-admin";
+import { GoogleGenAI } from "@google/genai";
 
 const fbAdmin = admin as any;
 
@@ -106,6 +107,57 @@ app.post("/api/panic/trigger", async (req, res) => {
     res.json({ success: true, eventId: panicData.eventId });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+app.post("/api/ai/nearby-emergency-services", async (req, res) => {
+  try {
+    const { lat, lng, prompt } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured." });
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build'
+        }
+      }
+    });
+
+    const userPrompt = prompt || "Identify nearest open police stations, hospitals, trauma centers, and security emergency response hubs near my coordinates.";
+    const userLat = typeof lat === 'number' ? lat : -26.2041;
+    const userLng = typeof lng === 'number' ? lng : 28.0473;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: userPrompt,
+      config: {
+        tools: [{ googleMaps: {} }],
+        toolConfig: {
+          retrievalConfig: {
+            latLng: {
+              latitude: userLat,
+              longitude: userLng
+            }
+          }
+        }
+      }
+    });
+
+    const text = response.text || "No recommendations returned.";
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+
+    res.json({
+      text,
+      groundingChunks
+    });
+  } catch (error: any) {
+    console.error("Error in AI nearby emergency services handler:", error);
+    res.status(500).json({ error: error.message || "Failed to generate AI emergency location recommendations." });
   }
 });
 
